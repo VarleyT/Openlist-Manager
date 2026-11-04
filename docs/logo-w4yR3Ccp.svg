@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 768 768" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">bytegrep-agent</title>
+  <desc id="description">Vector reconstruction of the supplied blue and cyan bytegrep-agent logo, with a letter monogram, code brackets, an orbital ring, two nodes and a four-point sparkle. Transparent background.</desc>
+  <defs>
+    <linearGradient id="stem" x1="175" y1="80" x2="307" y2="611" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00B5FC"/>
+      <stop offset="0.25" stop-color="#00AAFC"/>
+      <stop offset="0.45" stop-color="#008EFC"/>
+      <stop offset="0.7" stop-color="#0086FC"/>
+      <stop offset="1" stop-color="#0078FC"/>
+    </linearGradient>
+    <linearGradient id="bowl" x1="304" y1="386" x2="585" y2="404" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14E8E9"/>
+      <stop offset="0.2" stop-color="#0FDEEC"/>
+      <stop offset="0.58" stop-color="#01ABFA"/>
+      <stop offset="1" stop-color="#007DFD"/>
+    </linearGradient>
+    <linearGradient id="lowerLight" x1="568" y1="509" x2="479" y2="699" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#12ECE4"/>
+      <stop offset="0.36" stop-color="#00B8FF"/>
+      <stop offset="1" stop-color="#0081FF"/>
+    </linearGradient>
+    <linearGradient id="leftShadow" x1="172" y1="184" x2="256" y2="569" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#004DB1"/>
+      <stop offset="0.56" stop-color="#003694"/>
+      <stop offset="1" stop-color="#00236D"/>
+    </linearGradient>
+    <linearGradient id="lowerShadow" x1="218" y1="605" x2="507" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#022B74"/>
+      <stop offset="0.46" stop-color="#003DAF"/>
+      <stop offset="1" stop-color="#0074DD"/>
+    </linearGradient>
+    <radialGradient id="rightGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(580 490) scale(110 235)">
+      <stop stop-color="#06428D" stop-opacity="0.65"/>
+      <stop offset="0.6" stop-color="#033B7D" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#033B7D" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="badge" cx="407" cy="370" r="270" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#032A60"/>
+      <stop offset="0.6" stop-color="#021A40"/>
+      <stop offset="1" stop-color="#030C25"/>
+    </radialGradient>
+    <linearGradient id="orbitBack" x1="60" y1="555" x2="183" y2="394" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00E7CD"/>
+      <stop offset="0.58" stop-color="#00BFEF"/>
+      <stop offset="1" stop-color="#009DFF"/>
+    </linearGradient>
+    <linearGradient id="orbitFront" x1="170" y1="596" x2="353" y2="574" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00C7ED"/>
+      <stop offset="1" stop-color="#00F3D4"/>
+    </linearGradient>
+    <linearGradient id="orbitRight" x1="533" y1="454" x2="705" y2="291" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00C6F2"/>
+      <stop offset="0.55" stop-color="#00E2CD"/>
+      <stop offset="1" stop-color="#00DCCA"/>
+    </linearGradient>
+    <linearGradient id="antenna" x1="477" y1="208" x2="502" y2="310" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#052E68"/>
+      <stop offset="1" stop-color="#02112D"/>
+    </linearGradient>
+    <linearGradient id="aqua" x1="476" y1="222" x2="515" y2="284" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00C7ED"/>
+      <stop offset="1" stop-color="#00CCF1"/>
+    </linearGradient>
+    <linearGradient id="pearl" x1="489" y1="239" x2="506" y2="263" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3FFFF"/>
+      <stop offset="1" stop-color="#74ECFF"/>
+    </linearGradient>
+    <linearGradient id="sparkle" x1="587" y1="204" x2="627" y2="299" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00EFCA"/>
+      <stop offset="1" stop-color="#00BDEF"/>
+    </linearGradient>
+    <linearGradient id="node" x1="149" y1="532" x2="181" y2="597" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#007DE0"/>
+      <stop offset="1" stop-color="#04429A"/>
+    </linearGradient>
+    <linearGradient id="nodeCore" x1="156" y1="546" x2="182" y2="582" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00F3D6"/>
+      <stop offset="1" stop-color="#00E4DF"/>
+    </linearGradient>
+    <linearGradient id="code" x1="395" y1="431" x2="395" y2="526" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00F2D1"/>
+      <stop offset="1" stop-color="#00BFF1"/>
+    </linearGradient>
+    <clipPath id="bodyClip">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M194 75C258 75 310 115 310 168V312C336 297 366 287 397 287C486 287 561 341 594 417L576 462C605 458 620 477 620 507V561C620 649 565 704 479 704H369C272 704 207 666 180 598C171 570 170 540 170 505V98Q170 75 194 75ZM286 594C317 620 349 634 385 634C456 634 512 603 514 550H466C449 577 425 591 398 591C354 591 319 590 286 594Z"/>
+    </clipPath>
+    <clipPath id="faceClip">
+      <path d="M398 362C459 362 508 405 517 462H576C605 462 620 477 620 507V561C620 648 565 704 479 704H403C442 704 480 699 508 682C553 654 579 609 579 551V533C579 518 573 510 557 510H512C489 510 474 524 466 550C445 577 424 590 398 590C332 590 278 540 278 477C278 414 331 362 398 362Z"/>
+    </clipPath>
+  </defs>
+  <!-- Rear orbital arc and the agent antenna. -->
+  <path d="M173 395C97 449 59 493 59 525C59 565 112 580 169 580L181 560C118 553 77 544 97 501C112 472 143 435 173 412Z" fill="url(#orbitBack)"/>
+  <path d="M476 263L454 300L499 316L515 277Z" fill="url(#antenna)"/>
+  <path d="M492 275L479 306" stroke="url(#aqua)" stroke-width="13"/>
+  <circle cx="497" cy="251" r="47" fill="url(#antenna)"/>
+  <circle cx="497" cy="251" r="30.5" fill="url(#aqua)"/>
+  <circle cx="497" cy="251" r="12.5" fill="url(#pearl)"/>
+  <!-- The original b/g monogram, with its lower opening. -->
+  <g clip-path="url(#bodyClip)">
+    <path d="M160 65H630V714H160Z" fill="url(#stem)"/>
+    <path d="M310 312C336 297 366 287 397 287C486 287 561 341 594 417L576 462H517C509 406 460 362 398 362C364 362 334 377 310 404Z" fill="url(#bowl)"/>
+    <path d="M433 510H604V714H433Z" fill="url(#lowerLight)"/>
+    <path d="M170 183C210 188 237 214 237 250V491C237 525 244 553 266 575L260 610L164 600Z" fill="url(#leftShadow)"/>
+    <path d="M160 568C211 576 250 580 286 594C315 620 347 634 385 634C402 634 416 632 437 628C462 636 484 654 508 682C481 698 448 704 403 704H160Z" fill="url(#lowerShadow)"/>
+  </g>
+  <!-- Sweeping front arc, tucked beneath the code badge. -->
+  <path d="M164 549C208 571 278 584 371 582L423 574C353 600 258 609 165 585Z" fill="url(#orbitFront)"/>
+  <path d="M642 275C690 272 721 290 721 316C721 366 638 425 565 462H517C600 429 655 397 683 360C718 309 696 282 642 275Z" fill="url(#orbitRight)"/>
+  <!-- The code badge and the g's dark right-hand return are one surface. -->
+  <g clip-path="url(#faceClip)">
+    <path d="M270 350H630V714H270Z" fill="url(#badge)"/>
+    <path d="M270 350H630V714H270Z" fill="url(#rightGlow)"/>
+  </g>
+  <path d="M366 439L327 478L363 517M426 439L465 478L425 517" stroke="url(#code)" stroke-width="23" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="169" cy="562" r="34" fill="url(#node)"/>
+  <circle cx="169" cy="562" r="16.5" fill="url(#nodeCore)"/>
+  <path d="M610 194C604 230 595 242 553 251C595 259 604 272 610 309C617 273 627 259 668 251C627 243 617 230 610 194Z" fill="url(#sparkle)"/>
+</svg>

@@ -1,0 +1,12 @@
+* text=auto
+
+# Unix 脚本必须保持 LF，否则在 Linux/CI 上无法执行
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Windows 脚本保持 CRLF
+*.bat text eol=crlf
+
+*.png binary
+*.webp binary
+*.jar binary

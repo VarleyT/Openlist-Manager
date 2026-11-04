@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    OpenList 常部署在局域网内并使用 http:// 访问，因此允许明文流量；
+    登录页会对 http 地址给出风险提示。
+    只信任系统 CA 证书，不信任用户安装的证书，也不忽略 TLS 错误。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

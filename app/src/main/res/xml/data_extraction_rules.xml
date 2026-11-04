@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 服务器列表包含加密凭据，不参与云备份与设备迁移 -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/servers.preferences_pb" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/servers.preferences_pb" />
+    </device-transfer>
+</data-extraction-rules>
