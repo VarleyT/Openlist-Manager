@@ -58,6 +58,10 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch { settingsStore.setFileGrid(enabled) }
     }
 
+    fun setAutoCheckUpdate(enabled: Boolean) {
+        viewModelScope.launch { settingsStore.setAutoCheckUpdate(enabled) }
+    }
+
     private companion object {
         const val STOP_TIMEOUT = 5_000L
     }

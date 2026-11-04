@@ -1,5 +1,6 @@
 package com.bytegrep.oplist_manager
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -8,11 +9,14 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bytegrep.oplist_manager.core.designsystem.theme.OpenListTheme
+import com.bytegrep.oplist_manager.feature.profile.UpdateDialog
 import com.bytegrep.oplist_manager.navigation.AppNavHost
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -34,9 +38,26 @@ class MainActivity : ComponentActivity() {
                     val ready = start as? StartState.Ready
                     if (ready != null) {
                         AppNavHost(loggedIn = ready.loggedIn, authExpired = viewModel.authExpired)
+                        StartupUpdatePrompt()
                     }
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun StartupUpdatePrompt() {
+        val release by viewModel.pendingUpdate.collectAsStateWithLifecycle()
+        release?.let { pending ->
+            UpdateDialog(
+                release = pending,
+                onDownload = {
+                    viewModel.dismissUpdate()
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, pending.pageUrl.toUri())) }
+                },
+                onDismiss = viewModel::dismissUpdate,
+                onIgnore = viewModel::ignoreUpdate,
+            )
         }
     }
 }

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -21,7 +20,6 @@ import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.SystemUpdate
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -29,7 +27,6 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,7 +48,6 @@ import com.bytegrep.oplist_manager.core.designsystem.component.SectionHeader
 import com.bytegrep.oplist_manager.core.designsystem.theme.OpenListTheme
 import com.bytegrep.oplist_manager.core.designsystem.theme.Spacing
 import com.bytegrep.oplist_manager.data.update.AppLinks
-import com.bytegrep.oplist_manager.data.update.AppRelease
 
 @Composable
 fun AppSettingsScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltViewModel()) {
@@ -102,6 +98,20 @@ fun AppSettingsScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltView
                             icon = Icons.Outlined.GridView,
                             showChevron = false,
                             trailing = { Switch(checked = settings.fileGrid, onCheckedChange = viewModel::setFileGrid) },
+                        )
+                    },
+                ),
+            )
+            SectionHeader("更新")
+            GroupCard(
+                rows = listOf(
+                    {
+                        GroupRow(
+                            "启动时检查更新",
+                            subtitle = "每天最多检查一次，发现新版本时提醒",
+                            icon = Icons.Outlined.SystemUpdate,
+                            showChevron = false,
+                            trailing = { Switch(checked = settings.autoCheckUpdate, onCheckedChange = viewModel::setAutoCheckUpdate) },
                         )
                     },
                 ),
@@ -193,30 +203,5 @@ private fun UpdateRow(state: UpdateUiState, onClick: () -> Unit) {
         } else {
             null
         },
-    )
-}
-
-@Composable
-private fun UpdateDialog(release: AppRelease, onDownload: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("发现新版本 v${release.version}") },
-        text = {
-            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
-                Text(
-                    "当前版本 v${BuildConfig.VERSION_NAME}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OpenListTheme.colors.ink3,
-                )
-                Spacer(Modifier.height(Spacing.sm))
-                Text(
-                    release.notes.ifEmpty { "暂无更新说明" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = OpenListTheme.colors.ink2,
-                )
-            }
-        },
-        confirmButton = { TextButton(onClick = onDownload) { Text("前往下载") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("稍后") } },
     )
 }
