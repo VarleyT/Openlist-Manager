@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -32,6 +33,8 @@ import com.bytegrep.oplist_manager.feature.dashboard.DashboardScreen
 import com.bytegrep.oplist_manager.feature.files.FilePreviewScreen
 import com.bytegrep.oplist_manager.feature.files.FilesScreen
 import com.bytegrep.oplist_manager.feature.login.LoginScreen
+import com.bytegrep.oplist_manager.feature.player.VideoPlayerActivity
+import com.bytegrep.oplist_manager.feature.player.isOnlinePlayableVideo
 import com.bytegrep.oplist_manager.feature.profile.AboutScreen
 import com.bytegrep.oplist_manager.feature.profile.AppSettingsScreen
 import com.bytegrep.oplist_manager.feature.profile.ProfileScreen
@@ -52,6 +55,7 @@ fun AppNavHost(
     authExpired: SharedFlow<String>,
     navController: NavHostController = rememberNavController(),
 ) {
+    val context = LocalContext.current
     val backStack by navController.currentBackStackEntryAsState()
     val destination = backStack?.destination
     val showBottomBar = TopLevelTab.entries.any { tab -> destination?.hasRoute(tab.route::class) == true }
@@ -97,7 +101,13 @@ fun AppNavHost(
             }
             composable<FilesRoute> {
                 FilesScreen(
-                    onOpenPreview = { path -> navController.navigate(FilePreviewRoute(path)) },
+                    onOpenPreview = { path ->
+                        if (isOnlinePlayableVideo(path)) {
+                            context.startActivity(VideoPlayerActivity.intent(context, path))
+                        } else {
+                            navController.navigate(FilePreviewRoute(path))
+                        }
+                    },
                     onOpenTasks = { navController.navigate(TasksRoute) },
                 )
             }

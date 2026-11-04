@@ -61,6 +61,22 @@ data class FsGetData(
     val type: Int = FsType.UNKNOWN,
     @SerialName("raw_url") val rawUrl: String = "",
     val provider: String = "",
+    /** 同目录下文件名前缀相同的文件（仅视频返回，可用于匹配字幕） */
+    val related: List<FsObject>? = null,
+)
+
+/** `/api/fs/link` 请求（仅管理员）；path 为含用户 base_path 的完整路径 */
+@Serializable
+data class FsLinkRequest(
+    val path: String,
+    val password: String = "",
+)
+
+/** `/api/fs/link` 响应：驱动直链及其要求的请求头（Go http.Header：name -> values） */
+@Serializable
+data class FsLinkData(
+    val url: String = "",
+    val header: Map<String, List<String>>? = null,
 )
 
 @Serializable

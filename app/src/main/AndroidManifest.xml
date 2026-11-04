@@ -34,6 +34,13 @@
             </intent-filter>
         </activity>
 
+        <!-- 在线视频播放：自行处理旋转，避免重建打断播放 -->
+        <activity
+            android:name=".feature.player.VideoPlayerActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:exported="false"
+            android:theme="@style/Theme.OpenListManager" />
+
         <!-- 使用 HiltWorkerFactory，关闭 WorkManager 默认初始化 -->
         <provider
             android:name="androidx.startup.InitializationProvider"

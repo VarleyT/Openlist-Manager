@@ -6,6 +6,8 @@ import com.bytegrep.oplist_manager.data.model.FsDirItem
 import com.bytegrep.oplist_manager.data.model.FsDirsRequest
 import com.bytegrep.oplist_manager.data.model.FsGetData
 import com.bytegrep.oplist_manager.data.model.FsGetRequest
+import com.bytegrep.oplist_manager.data.model.FsLinkData
+import com.bytegrep.oplist_manager.data.model.FsLinkRequest
 import com.bytegrep.oplist_manager.data.model.FsListData
 import com.bytegrep.oplist_manager.data.model.FsListRequest
 import com.bytegrep.oplist_manager.data.model.FsSearchItem
@@ -55,6 +57,10 @@ interface OpenListApi {
 
     @POST("api/fs/get")
     suspend fun fsGet(@Body body: FsGetRequest): ApiEnvelope<FsGetData>
+
+    /** 获取驱动直链与所需请求头，仅管理员可用 */
+    @POST("api/fs/link")
+    suspend fun fsLink(@Body body: FsLinkRequest): ApiEnvelope<FsLinkData>
 
     @POST("api/fs/dirs")
     suspend fun fsDirs(@Body body: FsDirsRequest): ApiEnvelope<List<FsDirItem>>
