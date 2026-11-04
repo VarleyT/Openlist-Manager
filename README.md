@@ -8,6 +8,8 @@
 
 通过 OpenList 官方 REST API，在手机上管理文件、存储挂载、用户与任务。
 
+[![CI](https://img.shields.io/github/actions/workflow/status/VarleyT/Openlist-Manager/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/VarleyT/Openlist-Manager/actions/workflows/ci.yml)
+[![Downloads](https://img.shields.io/github/downloads/VarleyT/Openlist-Manager/total?color=brightgreen)](https://github.com/VarleyT/Openlist-Manager/releases)
 [![License](https://img.shields.io/github/license/VarleyT/Openlist-Manager?color=blue)](LICENSE)
 [![Repo Size](https://img.shields.io/github/repo-size/VarleyT/Openlist-Manager)](https://github.com/VarleyT/Openlist-Manager)
 [![Code Size](https://img.shields.io/github/languages/code-size/VarleyT/Openlist-Manager)](https://github.com/VarleyT/Openlist-Manager)
@@ -135,6 +137,31 @@ keyPassword=your_key_password
 ```
 
 未配置时 Release 包不会签名，不影响 Debug 构建。
+
+### 持续集成与发版
+
+| 工作流 | 触发 | 内容 |
+|---|---|---|
+| [CI](.github/workflows/ci.yml) | 推送到 `main` / Pull Request | 单元测试 + 构建 Debug APK（作为 Artifact 上传） |
+| [Release](.github/workflows/release.yml) | 推送 `v*` 标签 | 单元测试 + 构建签名 Release APK，自动创建 GitHub Release 并附带 APK 与 SHA-256 |
+
+发布新版本：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+版本名取自标签（去掉 `v` 前缀），版本号取自工作流运行序号；带 `-` 的标签（如 `v1.1.0-beta.1`）发布为预发布版本。
+
+Release 工作流需要在仓库 **Settings → Secrets and variables → Actions** 中配置：
+
+| Secret | 说明 |
+|---|---|
+| `KEYSTORE_BASE64` | 签名文件的 Base64 编码（`base64 -w0 release.jks`） |
+| `KEYSTORE_PASSWORD` | 密钥库密码 |
+| `KEY_ALIAS` | 密钥别名 |
+| `KEY_PASSWORD` | 密钥密码 |
 
 ## 🧱 技术栈
 

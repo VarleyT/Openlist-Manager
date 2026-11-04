@@ -18,8 +18,9 @@ android {
         applicationId = "com.bytegrep.oplist_manager"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        // CI 发版时通过 -PappVersionCode / -PappVersionName 注入（取自 Git tag），本地构建使用默认值
+        versionCode = providers.gradleProperty("appVersionCode").orNull?.toInt() ?: 1
+        versionName = providers.gradleProperty("appVersionName").orNull ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
