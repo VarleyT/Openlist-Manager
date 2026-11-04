@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -18,12 +20,16 @@ import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -44,6 +50,8 @@ import com.bytegrep.oplist_manager.core.designsystem.component.OlCard
 import com.bytegrep.oplist_manager.core.designsystem.component.SectionHeader
 import com.bytegrep.oplist_manager.core.designsystem.theme.OpenListTheme
 import com.bytegrep.oplist_manager.core.designsystem.theme.Spacing
+import com.bytegrep.oplist_manager.data.update.AppLinks
+import com.bytegrep.oplist_manager.data.update.AppRelease
 
 @Composable
 fun AppSettingsScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltViewModel()) {
@@ -104,10 +112,21 @@ fun AppSettingsScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltView
 }
 
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(onBack: () -> Unit, viewModel: AboutViewModel = hiltViewModel()) {
     val context = LocalContext.current
+    val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     val open: (String) -> Unit = { url ->
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())) }
+    }
+    (updateState as? UpdateUiState.Available)?.takeIf { it.dialogVisible }?.let { state ->
+        UpdateDialog(
+            release = state.release,
+            onDownload = {
+                viewModel.dismissDialog()
+                open(state.release.pageUrl)
+            },
+            onDismiss = viewModel::dismissDialog,
+        )
     }
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
         LargeTitleBar(title = "关于", onBack = onBack)
@@ -122,6 +141,13 @@ fun AboutScreen(onBack: () -> Unit) {
                 "OpenList 的 Android 远程管理客户端，通过官方 REST API 管理文件、存储、用户与任务。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = OpenListTheme.colors.ink2,
+            )
+            SectionHeader("更新")
+            GroupCard(
+                rows = listOf(
+                    { UpdateRow(updateState, onClick = viewModel::checkUpdate) },
+                    { GroupRow("项目仓库", subtitle = AppLinks.REPO_DISPLAY, icon = Icons.Outlined.Code, onClick = { open(AppLinks.REPO_URL) }) },
+                ),
             )
             SectionHeader("相关链接")
             GroupCard(
@@ -145,4 +171,52 @@ fun AboutScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(Spacing.xxl))
         }
     }
+}
+
+@Composable
+private fun UpdateRow(state: UpdateUiState, onClick: () -> Unit) {
+    val subtitle = when (state) {
+        UpdateUiState.Idle -> "当前版本 v${BuildConfig.VERSION_NAME}"
+        UpdateUiState.Checking -> "正在检查…"
+        UpdateUiState.UpToDate -> "已是最新版本"
+        is UpdateUiState.Available -> "发现新版本 v${state.release.version}"
+        is UpdateUiState.Failed -> state.message
+    }
+    GroupRow(
+        "检查更新",
+        subtitle = subtitle,
+        icon = Icons.Outlined.SystemUpdate,
+        showChevron = state !is UpdateUiState.Checking,
+        onClick = onClick,
+        trailing = if (state is UpdateUiState.Checking) {
+            { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = OpenListTheme.colors.ink3) }
+        } else {
+            null
+        },
+    )
+}
+
+@Composable
+private fun UpdateDialog(release: AppRelease, onDownload: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("发现新版本 v${release.version}") },
+        text = {
+            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                Text(
+                    "当前版本 v${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = OpenListTheme.colors.ink3,
+                )
+                Spacer(Modifier.height(Spacing.sm))
+                Text(
+                    release.notes.ifEmpty { "暂无更新说明" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OpenListTheme.colors.ink2,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDownload) { Text("前往下载") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("稍后") } },
+    )
 }
