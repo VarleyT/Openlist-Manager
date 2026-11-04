@@ -10,13 +10,14 @@ import com.bytegrep.oplist_manager.core.network.unwrap
 import com.bytegrep.oplist_manager.core.security.SecretCipher
 import com.bytegrep.oplist_manager.data.model.LoginRequest
 import com.bytegrep.oplist_manager.data.session.SessionManager
-import kotlinx.coroutines.flow.Flow
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import com.bytegrep.oplist_manager.feature.files.UploadScheduler
 import java.net.URI
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 /** 连接测试结果 */
 data class ServerProbe(
@@ -31,6 +32,7 @@ class AuthRepository @Inject constructor(
     private val serverStore: ServerStore,
     private val cipher: SecretCipher,
     private val sessionManager: SessionManager,
+    private val uploadScheduler: UploadScheduler,
 ) {
     val servers: Flow<ServerState> = serverStore.state
 
@@ -91,6 +93,7 @@ class AuthRepository @Inject constructor(
     /** 退出当前服务器：通知服务端注销，并清除本地 Token 与密码 */
     suspend fun logout() {
         val session = sessionManager.session.value ?: return
+        uploadScheduler.cancelFor(session.server.id)
         runCatching { safeApiCall { factory.create(session.server.baseUrl, session.token).logout() } }
         serverStore.update(session.server.id) { it.copy(tokenEnc = null, passwordEnc = null) }
         serverStore.setActive(null)
@@ -102,10 +105,13 @@ class AuthRepository @Inject constructor(
         if (sessionManager.session.value?.server?.id == id) sessionManager.restore()
     }
 
-    suspend fun remove(id: String) {
+    /** 移除服务器及其凭据；返回被移除的是否为当前活动服务器（此时会话已清空，需回到登录页） */
+    suspend fun remove(id: String): Boolean {
         val isActive = sessionManager.session.value?.server?.id == id
+        uploadScheduler.cancelFor(id)
         serverStore.remove(id)
         if (isActive) sessionManager.clear()
+        return isActive
     }
 
     private fun JsonObject.string(key: String): String =

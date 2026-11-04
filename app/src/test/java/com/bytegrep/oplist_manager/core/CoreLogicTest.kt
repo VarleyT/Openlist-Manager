@@ -37,6 +37,12 @@ class CoreLogicTest {
     }
 
     @Test
+    fun `normalizeBaseUrl rejects scheme without host`() {
+        assertNull(ApiClientFactory.normalizeBaseUrl("http://"))
+        assertNull(ApiClientFactory.normalizeBaseUrl("https:///"))
+    }
+
+    @Test
     fun `normalizeBaseUrl rejects blank input`() {
         assertNull(ApiClientFactory.normalizeBaseUrl("   "))
     }

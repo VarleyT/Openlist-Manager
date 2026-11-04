@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ViewList
@@ -27,6 +29,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.SwapVert
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -37,9 +40,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -126,7 +131,7 @@ private fun FilesContent(
         Box(Modifier.weight(1f)) {
             val search = state.search
             if (search != null) {
-                SearchResults(search, onOpen = { hit ->
+                SearchResults(search, onLoadMore = vm::loadMoreSearch, onOpen = { hit ->
                     if (hit.isDir) vm.openPath(joinPath(hit.parent, hit.name)) else onOpenPreview(joinPath(hit.parent, hit.name))
                 })
             } else {
@@ -262,22 +267,36 @@ private fun FileGrid(
 }
 
 @Composable
-private fun SearchResults(search: SearchUiState, onOpen: (FsSearchItem) -> Unit) {
+private fun SearchResults(search: SearchUiState, onLoadMore: () -> Unit, onOpen: (FsSearchItem) -> Unit) {
     when {
         search.isLoading -> LoadingState(text = "搜索中…")
         search.error != null -> EmptyState(title = "搜索失败", message = search.error, icon = Icons.Outlined.SearchOff)
         search.results.isEmpty() -> EmptyState(title = "没有找到结果", message = "换个关键字试试", icon = Icons.Outlined.SearchOff)
-        else -> SearchResultList(search.results, onOpen)
+        else -> SearchResultList(search, onLoadMore, onOpen)
     }
 }
 
 @Composable
-private fun SearchResultList(results: List<FsSearchItem>, onOpen: (FsSearchItem) -> Unit) {
+private fun SearchResultList(search: SearchUiState, onLoadMore: () -> Unit, onOpen: (FsSearchItem) -> Unit) {
+    val results = search.results
+    val listState = rememberLazyListState()
+    // 接近底部时自动加载下一页；ViewModel 内部保证不重复请求
+    val nearEnd by remember {
+        derivedStateOf {
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            last >= listState.layoutInfo.totalItemsCount - LOAD_MORE_THRESHOLD
+        }
+    }
+    // results.size 作为 key：新一页加载后仍在底部时继续触发
+    LaunchedEffect(nearEnd, results.size, search.hasMore, search.loadMoreError) {
+        if (nearEnd && search.hasMore && search.loadMoreError == null) onLoadMore()
+    }
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = Spacing.page, end = Spacing.page, bottom = ListBottomPadding),
     ) {
-        itemsIndexed(results, key = { _, hit -> joinPath(hit.parent, hit.name) }) { index, hit ->
+        itemsIndexed(results, key = { _, hit -> searchKey(hit) }) { index, hit ->
             Column(Modifier.clip(groupShape(index, results.size)).background(OpenListTheme.colors.surface)) {
                 FileRow(
                     title = hit.name,
@@ -295,8 +314,27 @@ private fun SearchResultList(results: List<FsSearchItem>, onOpen: (FsSearchItem)
                 }
             }
         }
+        item(key = "search-footer") { SearchFooter(search, onRetry = onLoadMore) }
     }
 }
+
+/** 搜索列表底部：加载中 / 加载失败可重试 / 已全部加载 */
+@Composable
+private fun SearchFooter(search: SearchUiState, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxWidth().padding(vertical = Spacing.lg), contentAlignment = Alignment.Center) {
+        when {
+            search.isLoadingMore -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            search.loadMoreError != null -> TextButton(onClick = onRetry) { Text("加载失败，点击重试") }
+            else -> Text(
+                if (search.hasMore) "已加载 ${search.results.size} / ${search.total} 条" else "共 ${search.results.size} 条结果",
+                style = MaterialTheme.typography.labelSmall,
+                color = OpenListTheme.colors.ink3,
+            )
+        }
+    }
+}
+
+private const val LOAD_MORE_THRESHOLD = 5
 
 @Composable
 private fun AddFab(onClick: () -> Unit, modifier: Modifier = Modifier) {

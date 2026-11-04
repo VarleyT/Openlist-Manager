@@ -126,6 +126,7 @@ fun AppNavHost(
                     onAddServer = { navController.navigate(LoginRoute(allowBack = true)) },
                     onSwitched = { navController.goHome() },
                     onNeedLogin = { id -> navController.navigate(LoginRoute(serverId = id, allowBack = true)) },
+                    onActiveRemoved = { navController.goToLogin() },
                 )
             }
             composable<UsersRoute> {

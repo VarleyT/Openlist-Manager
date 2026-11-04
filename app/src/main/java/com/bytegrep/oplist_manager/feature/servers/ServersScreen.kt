@@ -65,6 +65,7 @@ import javax.inject.Inject
 
 sealed interface ServersEvent {
     data object Switched : ServersEvent
+    data object ActiveRemoved : ServersEvent
     data class NeedLogin(val id: String) : ServersEvent
     data class Message(val text: String) : ServersEvent
 }
@@ -93,7 +94,9 @@ class ServersViewModel @Inject constructor(
     fun remove(id: String) {
         viewModelScope.launch {
             runCatching { authRepository.remove(id) }
-                .onSuccess { _events.send(ServersEvent.Message("已移除服务器")) }
+                .onSuccess { wasActive ->
+                    _events.send(if (wasActive) ServersEvent.ActiveRemoved else ServersEvent.Message("已移除服务器"))
+                }
                 .onFailure { _events.send(ServersEvent.Message(it.userMessage())) }
         }
     }
@@ -109,6 +112,7 @@ fun ServersScreen(
     onAddServer: () -> Unit,
     onSwitched: () -> Unit,
     onNeedLogin: (String) -> Unit,
+    onActiveRemoved: () -> Unit,
     viewModel: ServersViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -120,6 +124,7 @@ fun ServersScreen(
             when (event) {
                 ServersEvent.Switched -> onSwitched()
                 is ServersEvent.NeedLogin -> onNeedLogin(event.id)
+                ServersEvent.ActiveRemoved -> onActiveRemoved()
                 is ServersEvent.Message -> snackbar.showSnackbar(event.text)
             }
         }

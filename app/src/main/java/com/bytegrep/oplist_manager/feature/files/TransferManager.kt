@@ -59,7 +59,7 @@ class DownloadHelper @Inject constructor(
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "$SUB_DIR/$localName")
         guessMimeType(localName)?.let { request.setMimeType(it) }
-        authHeaderFor(rawUrl)?.let { request.addRequestHeader("Authorization", it) }
+        session.tokenFor(url)?.let { request.addRequestHeader("Authorization", it) }
         val manager = context.getSystemService(DownloadManager::class.java)
             ?: throw AppException.Unknown("系统下载服务不可用")
         return try {
@@ -71,15 +71,6 @@ class DownloadHelper @Inject constructor(
         } catch (e: SecurityException) {
             throw AppException.Unknown("没有权限创建下载任务", e)
         }
-    }
-
-    /** 仅对当前服务器同源链接附加 Token，避免泄露给第三方存储域名 */
-    private fun authHeaderFor(rawUrl: String): String? {
-        val current = session.session.value ?: return null
-        val server = current.server.baseUrl.toHttpUrlOrNull() ?: return null
-        val target = rawUrl.toHttpUrlOrNull() ?: return null
-        val sameOrigin = server.scheme == target.scheme && server.host == target.host && server.port == target.port
-        return if (sameOrigin) current.token else null
     }
 
     private companion object {
@@ -95,16 +86,18 @@ class UploadScheduler @Inject constructor(
     private val workManager: WorkManager get() = WorkManager.getInstance(context)
 
     /** 入队上传，返回成功入队的文件数。需在 IO 线程调用（会查询 ContentResolver） */
-    fun enqueue(uris: List<Uri>, targetDir: String): Int = uris.count { uri ->
+    fun enqueue(uris: List<Uri>, targetDir: String, serverId: String): Int = uris.count { uri ->
         runCatching {
             context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         val name = queryDisplayName(uri) ?: return@count false
         val request = OneTimeWorkRequestBuilder<UploadWorker>()
             .addTag(TAG)
+            .addTag(serverTag(serverId))
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setInputData(
                 workDataOf(
+                    UploadWorker.KEY_SERVER_ID to serverId,
                     UploadWorker.KEY_URI to uri.toString(),
                     UploadWorker.KEY_TARGET_DIR to targetDir,
                     UploadWorker.KEY_NAME to name,
@@ -117,6 +110,11 @@ class UploadScheduler @Inject constructor(
 
     fun observe(): Flow<List<WorkInfo>> = workManager.getWorkInfosByTagFlow(TAG)
 
+    /** 取消指定服务器的全部排队及进行中的上传（移除服务器、退出登录时调用） */
+    fun cancelFor(serverId: String) {
+        workManager.cancelAllWorkByTag(serverTag(serverId))
+    }
+
     private fun queryDisplayName(uri: Uri): String? = runCatching {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
             val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -126,6 +124,8 @@ class UploadScheduler @Inject constructor(
 
     companion object {
         const val TAG = "upload"
+
+        private fun serverTag(serverId: String) = "upload-server:$serverId"
     }
 }
 
@@ -141,13 +141,15 @@ class UploadWorker @AssistedInject constructor(
     private val notificationId = id.hashCode()
 
     override suspend fun doWork(): Result {
+        // 旧版本入队的任务没有服务器信息，不能猜测目标服务器，直接失败
+        val serverId = inputData.getString(KEY_SERVER_ID) ?: return failure("上传任务缺少服务器信息，请重新上传")
         val uri = inputData.getString(KEY_URI)?.let(Uri::parse) ?: return failure("缺少文件参数")
         val targetDir = inputData.getString(KEY_TARGET_DIR) ?: "/"
         val name = inputData.getString(KEY_NAME) ?: return failure("缺少文件名")
         ensureChannel()
         runCatching { setForeground(foregroundInfo(name, 0)) }
         return try {
-            upload(uri, targetDir, name)
+            upload(serverId, uri, targetDir, name)
             notificationManager?.cancel(notificationId)
             Result.success(workDataOf(KEY_NAME to name, KEY_TARGET_DIR to targetDir))
         } catch (e: CancellationException) {
@@ -159,11 +161,12 @@ class UploadWorker @AssistedInject constructor(
         }
     }
 
-    private suspend fun upload(uri: Uri, targetDir: String, name: String) {
+    private suspend fun upload(serverId: String, uri: Uri, targetDir: String, name: String) {
         val resolver = applicationContext.contentResolver
         val size = querySize(uri)
         val lastReport = AtomicLong(0L)
         fileRepository.upload(
+            serverId = serverId,
             dir = targetDir,
             name = name,
             size = size,
@@ -212,6 +215,7 @@ class UploadWorker @AssistedInject constructor(
     }
 
     companion object {
+        const val KEY_SERVER_ID = "serverId"
         const val KEY_URI = "uri"
         const val KEY_TARGET_DIR = "targetDir"
         const val KEY_NAME = "fileName"

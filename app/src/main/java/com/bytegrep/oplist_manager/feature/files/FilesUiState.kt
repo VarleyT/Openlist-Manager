@@ -1,5 +1,6 @@
 package com.bytegrep.oplist_manager.feature.files
 
+import com.bytegrep.oplist_manager.core.common.joinPath
 import com.bytegrep.oplist_manager.data.model.FsObject
 import com.bytegrep.oplist_manager.data.model.FsSearchItem
 
@@ -17,7 +18,35 @@ data class SearchUiState(
     val isLoading: Boolean = true,
     val results: List<FsSearchItem> = emptyList(),
     val error: String? = null,
-)
+    /** 服务端统计的结果总数 */
+    val total: Long = 0,
+    /** 已加载的页码，0 表示尚未加载 */
+    val page: Int = 0,
+    val isLoadingMore: Boolean = false,
+    val loadMoreError: String? = null,
+) {
+    val hasMore: Boolean get() = page > 0 && results.size < total
+}
+
+/**
+ * 合并一页搜索结果：按完整路径去重（LazyColumn key 不允许重复）。
+ * 服务端返回空页时视为已到末尾，避免 total 不准确导致无限请求。
+ */
+fun SearchUiState.appendPage(page: Int, items: List<FsSearchItem>, total: Long): SearchUiState {
+    val seen = results.mapTo(HashSet()) { searchKey(it) }
+    val merged = results + items.filter { seen.add(searchKey(it)) }
+    return copy(
+        isLoading = false,
+        isLoadingMore = false,
+        error = null,
+        loadMoreError = null,
+        results = merged,
+        page = page,
+        total = if (items.isEmpty()) merged.size.toLong() else maxOf(total, merged.size.toLong()),
+    )
+}
+
+fun searchKey(item: FsSearchItem): String = joinPath(item.parent, item.name)
 
 enum class TransferMode(val title: String, val confirmLabel: String) {
     MOVE("移动到", "移动到此处"),

@@ -24,3 +24,15 @@ docs/local_connection.txt
 
 # 设计稿与规划文档，仅本地保留
 /docs/plan/
+
+# 其他可能包含凭据的文件
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+**/keystore.properties

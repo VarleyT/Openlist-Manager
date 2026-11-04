@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.bytegrep.oplist_manager.core.common.userMessage
 import com.bytegrep.oplist_manager.core.datastore.ServerProfile
+import com.bytegrep.oplist_manager.core.network.ApiClientFactory
 import com.bytegrep.oplist_manager.data.repository.AuthRepository
 import com.bytegrep.oplist_manager.navigation.LoginRoute
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +20,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 data class LoginUiState(
     val url: String = "",
@@ -33,7 +34,9 @@ data class LoginUiState(
     val activeId: String? = null,
     val editingId: String? = null,
 ) {
-    val isInsecure: Boolean get() = url.trim().startsWith("http://", ignoreCase = true)
+    /** 以规范化后实际使用的地址判断：未写协议的局域网地址会补全为 http */
+    val isInsecure: Boolean get() = ApiClientFactory.normalizeBaseUrl(url)?.startsWith("http://") == true
+    val isSecure: Boolean get() = ApiClientFactory.normalizeBaseUrl(url)?.startsWith("https://") == true
     val canSubmit: Boolean get() = url.isNotBlank() && username.isNotBlank() && password.isNotEmpty() && !isLoading
 }
 

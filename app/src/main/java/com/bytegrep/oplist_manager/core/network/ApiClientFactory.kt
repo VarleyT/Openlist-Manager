@@ -3,7 +3,6 @@ package com.bytegrep.oplist_manager.core.network
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -31,15 +30,19 @@ class ApiClientFactory @Inject constructor(
         return cache.getOrPut(key) { build(baseUrl, token) }
     }
 
-    /** 带认证头的 OkHttpClient，用于上传、文本预览等非 Retrofit 请求 */
-    fun authorizedClient(token: String?): OkHttpClient =
-        baseClient.newBuilder().apply { if (token != null) addInterceptor(authInterceptor(token)) }.build()
+    /**
+     * 按请求 URL 动态决定认证头的 OkHttpClient，用于文本预览、图片加载等非 Retrofit 请求。
+     * [tokenFor] 对非 OpenList 服务器同源的 URL 必须返回 null。
+     */
+    fun sameOriginClient(tokenFor: (HttpUrl) -> String?): OkHttpClient =
+        baseClient.newBuilder().addInterceptor(SameOriginAuthInterceptor(tokenFor)).build()
 
     private fun build(baseUrl: String, token: String?): OpenListApi {
         val url = requireNotNull(normalizeBaseUrl(baseUrl)?.toHttpUrlOrNull()) { "服务器地址无效" }
+        val client = if (token == null) baseClient else sameOriginClient { target -> token.takeIf { url.isSameOrigin(target) } }
         return Retrofit.Builder()
             .baseUrl(url)
-            .client(authorizedClient(token))
+            .client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(OpenListApi::class.java)
@@ -48,18 +51,17 @@ class ApiClientFactory @Inject constructor(
     companion object {
         private const val MAX_CACHE = 8
 
-        fun authInterceptor(token: String): Interceptor = Interceptor { chain ->
-            chain.proceed(chain.request().newBuilder().header("Authorization", token).build())
-        }
-
         /**
          * 规范化用户输入的服务器地址：补全协议、去掉多余路径分隔，确保以 "/" 结尾。
          * 未写协议时，局域网/IP 地址默认 http，其余默认 https。
          */
         fun normalizeBaseUrl(input: String): String? {
-            val trimmed = input.trim().trimEnd('/')
+            val raw = input.trim()
+            // 先于 trimEnd 判断协议，避免 "http://" 被截成 "http:" 后误当作主机名
+            val hasScheme = raw.startsWith("http://", true) || raw.startsWith("https://", true)
+            val trimmed = raw.trimEnd('/')
             if (trimmed.isEmpty()) return null
-            val withScheme = if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)) {
+            val withScheme = if (hasScheme) {
                 trimmed
             } else {
                 val host = trimmed.substringBefore('/').substringBefore(':')

@@ -163,13 +163,36 @@ class FilesViewModel @Inject constructor(
         _state.update { it.copy(search = SearchUiState(keywords), selectionMode = false, selectedNames = emptySet()) }
         searchJob = viewModelScope.launch {
             try {
-                val results = repository.search(_state.value.currentPath, keywords)
-                _state.update { it.copy(search = it.search?.copy(isLoading = false, results = results)) }
+                val page = repository.search(_state.value.currentPath, keywords, page = 1)
+                _state.update { it.copy(search = it.search?.appendPage(1, page.content.orEmpty(), page.total)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 val message = searchErrorMessage(e.userMessage())
                 _state.update { it.copy(search = it.search?.copy(isLoading = false, error = message)) }
+            }
+        }
+    }
+
+    /** 滚动到底部时加载下一页搜索结果；同一时间只有一个请求 */
+    fun loadMoreSearch() {
+        val current = _state.value.search ?: return
+        if (current.isLoading || current.isLoadingMore || !current.hasMore) return
+        val nextPage = current.page + 1
+        _state.update { it.copy(search = it.search?.copy(isLoadingMore = true, loadMoreError = null)) }
+        searchJob = viewModelScope.launch {
+            try {
+                val page = repository.search(_state.value.currentPath, current.keywords, page = nextPage)
+                _state.update { state ->
+                    // 期间关键字已变化则丢弃结果
+                    val search = state.search?.takeIf { it.keywords == current.keywords } ?: return@update state
+                    state.copy(search = search.appendPage(nextPage, page.content.orEmpty(), page.total))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val message = searchErrorMessage(e.userMessage())
+                _state.update { it.copy(search = it.search?.copy(isLoadingMore = false, loadMoreError = message)) }
             }
         }
     }
@@ -221,8 +244,10 @@ class FilesViewModel @Inject constructor(
     fun upload(uris: List<Uri>) {
         if (uris.isEmpty()) return
         val targetDir = _state.value.currentPath
+        // 入队时锁定目标服务器，之后切换服务器也不会改变上传目的地
+        val serverId = session.session.value?.server?.id ?: return sendMessage("尚未登录服务器")
         viewModelScope.launch {
-            val count = withContext(Dispatchers.IO) { uploadScheduler.enqueue(uris, targetDir) }
+            val count = withContext(Dispatchers.IO) { uploadScheduler.enqueue(uris, targetDir, serverId) }
             _messages.send(if (count > 0) "已加入上传队列：$count 个文件" else "无法读取所选文件")
         }
     }

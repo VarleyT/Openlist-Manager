@@ -130,7 +130,8 @@ private fun LoginForm(state: LoginUiState, viewModel: LoginViewModel) {
                 leading = Icons.Outlined.Dns,
                 keyboardType = KeyboardType.Uri,
                 trailing = {
-                    if (state.url.isNotBlank()) {
+                    // 地址无法解析时不显示锁图标，避免误导
+                    if (state.isSecure || state.isInsecure) {
                         Icon(
                             if (state.isInsecure) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
                             contentDescription = if (state.isInsecure) "未加密连接" else "加密连接",

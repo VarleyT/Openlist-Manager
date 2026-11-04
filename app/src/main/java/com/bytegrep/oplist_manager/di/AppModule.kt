@@ -21,6 +21,12 @@ object NetworkModule {
     private const val CONNECT_TIMEOUT_SEC = 15L
     private const val IO_TIMEOUT_SEC = 60L
 
+    /** Debug 日志中需脱敏的 URL 参数（大小写敏感，常见写法均列出） */
+    private val SENSITIVE_QUERY_PARAMS = arrayOf(
+        "sign", "token", "access_token", "auth_key", "signature", "Signature",
+        "X-Amz-Signature", "X-Amz-Credential", "X-Amz-Security-Token", "OSSAccessKeyId",
+    )
+
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
@@ -44,6 +50,8 @@ object NetworkModule {
                     HttpLoggingInterceptor().apply {
                         level = HttpLoggingInterceptor.Level.BASIC
                         redactHeader("Authorization")
+                        // OpenList 签名链接与第三方存储预签名直链的敏感参数
+                        redactQueryParams(*SENSITIVE_QUERY_PARAMS)
                     },
                 )
             }
