@@ -40,8 +40,13 @@ data class StorageEditUiState(
     val showDiscardDialog: Boolean = false,
 ) {
     val isDirty: Boolean get() = step == StorageEditStep.FORM && values != initialValues
+    /** 搜索同时匹配驱动原名与中文名 */
     val filteredDrivers: List<String>
-        get() = if (driverQuery.isBlank()) drivers else drivers.filter { it.contains(driverQuery.trim(), ignoreCase = true) }
+        get() {
+            val query = driverQuery.trim()
+            if (query.isEmpty()) return drivers
+            return drivers.filter { it.contains(query, ignoreCase = true) || translations.driverLabel(it).contains(query, ignoreCase = true) }
+        }
 }
 
 sealed interface StorageEditEvent {

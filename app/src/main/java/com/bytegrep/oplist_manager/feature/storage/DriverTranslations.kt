@@ -22,6 +22,13 @@ class DriverTranslations(
     private val common: JsonObject,
     private val drivers: JsonObject,
 ) {
+    /** 驱动中文名（如 BaiduNetdisk → 百度网盘）；无翻译或与原名相同时返回 null */
+    fun driverName(driver: String): String? =
+        (drivers["drivers"] as? JsonObject).stringOf(driver)?.takeIf { it != driver }
+
+    /** 驱动显示名：有中文名用中文名，否则用原名 */
+    fun driverLabel(driver: String): String = driverName(driver) ?: driver
+
     /** 字段显示名：驱动专属优先，其次通用 */
     fun label(driver: String, name: String): String = lookup(driver, name) ?: name
 

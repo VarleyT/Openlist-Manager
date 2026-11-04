@@ -23,6 +23,7 @@ data class StorageUiState(
     val isRefreshing: Boolean = false,
     val error: String? = null,
     val storages: List<Storage> = emptyList(),
+    val translations: DriverTranslations = DriverTranslations.EMPTY,
     /** 正在执行操作的存储 id，避免重复点击 */
     val busyIds: Set<Int> = emptySet(),
     val sheetTarget: Storage? = null,
@@ -39,6 +40,7 @@ data class StorageUiState(
 class StorageViewModel @Inject constructor(
     private val repository: StorageRepository,
     private val session: SessionManager,
+    private val translationsLoader: DriverTranslationsLoader,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(StorageUiState())
@@ -50,6 +52,10 @@ class StorageViewModel @Inject constructor(
     private var initialLoadStarted = false
 
     init {
+        viewModelScope.launch {
+            val translations = translationsLoader.load()
+            _state.update { it.copy(translations = translations) }
+        }
         viewModelScope.launch {
             session.currentUser.collect { user ->
                 val isAdmin = user?.isAdmin ?: true

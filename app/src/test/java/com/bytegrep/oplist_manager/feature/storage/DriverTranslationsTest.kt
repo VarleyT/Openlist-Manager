@@ -2,6 +2,7 @@ package com.bytegrep.oplist_manager.feature.storage
 
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class DriverTranslationsTest {
@@ -17,6 +18,7 @@ class DriverTranslationsTest {
             "webdav_policys": { "302_redirect": "302 重定向" }
           },
           "drivers": {
+            "drivers": { "BaiduNetdisk": "百度网盘", "Local": "本机存储", "Cloudreve": "Cloudreve" },
             "Local": {
               "root_folder_path": "根文件夹路径",
               "show_hidden": "显示隐藏",
@@ -32,6 +34,39 @@ class DriverTranslationsTest {
     fun `driver specific label wins over common label`() {
         assertEquals("本地序号", translations.label("Local", "order"))
         assertEquals("序号", translations.label("115 Cloud", "order"))
+    }
+
+    @Test
+    fun `driver name uses chinese translation`() {
+        assertEquals("百度网盘", translations.driverName("BaiduNetdisk"))
+        assertEquals("本机存储", translations.driverLabel("Local"))
+    }
+
+    @Test
+    fun `driver name is null when untranslated or identical`() {
+        assertNull(translations.driverName("Cloudreve"))
+        assertNull(translations.driverName("NewDriver"))
+        assertEquals("NewDriver", translations.driverLabel("NewDriver"))
+    }
+
+    @Test
+    fun `driver search matches chinese name and original name`() {
+        val state = StorageEditUiState(
+            isNew = true,
+            step = StorageEditStep.SELECT_DRIVER,
+            drivers = listOf("BaiduNetdisk", "Local", "Cloudreve"),
+            translations = translations,
+        )
+
+        assertEquals(listOf("BaiduNetdisk"), state.copy(driverQuery = "百度").filteredDrivers)
+        assertEquals(listOf("BaiduNetdisk"), state.copy(driverQuery = "baidu").filteredDrivers)
+        assertEquals(listOf("Local"), state.copy(driverQuery = " 本机 ").filteredDrivers)
+    }
+
+    @Test
+    fun `bundled asset translates baidu netdisk`() {
+        val text = java.io.File("src/main/assets/i18n/storage_zh_cn.json").readText()
+        assertEquals("百度网盘", DriverTranslations.parse(Json, text).driverName("BaiduNetdisk"))
     }
 
     @Test

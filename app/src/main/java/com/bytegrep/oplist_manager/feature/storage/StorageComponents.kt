@@ -103,6 +103,7 @@ fun StorageOverviewCard(total: Int, working: Int, error: Int, disabled: Int, mod
 @Composable
 fun StorageCard(
     storage: Storage,
+    driverLabel: String,
     isBusy: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -116,13 +117,13 @@ fun StorageCard(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         borderColor = if (storage.isError) colors.danger.copy(alpha = 0.3f) else colors.edge,
     ) {
-        StorageCardHeader(storage)
+        StorageCardHeader(storage, driverLabel)
         if (storage.isError) StorageErrorBar(storage.status, isBusy, onReload)
     }
 }
 
 @Composable
-private fun StorageCardHeader(storage: Storage) {
+private fun StorageCardHeader(storage: Storage, driverLabel: String) {
     val colors = OpenListTheme.colors
     Row(Modifier.fillMaxWidth().padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
         IconBlock(
@@ -144,7 +145,7 @@ private fun StorageCardHeader(storage: Storage) {
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 Spacer(Modifier.width(Spacing.sm))
-                TagChip(storage.driver)
+                TagChip(driverLabel)
             }
             Spacer(Modifier.height(2.dp))
             Text(

@@ -81,7 +81,7 @@ fun StorageEditScreen(onBack: () -> Unit) {
         topBar = {
             LargeTitleBar(
                 title = if (state.isNew) "添加存储" else "编辑存储",
-                subtitle = state.driver.takeIf { state.step == StorageEditStep.FORM },
+                subtitle = state.driver.takeIf { state.step == StorageEditStep.FORM }?.let(state.translations::driverLabel),
                 onBack = viewModel::onBackRequested,
             ) {
                 if (state.step == StorageEditStep.FORM && state.info != null) {
@@ -142,20 +142,23 @@ private fun DriverPicker(state: StorageEditUiState, viewModel: StorageEditViewMo
                 )
             }
             item(key = "header") { SectionHeader(title = "选择驱动（${state.filteredDrivers.size}）") }
-            driverRows(state.filteredDrivers, viewModel::selectDriver)
+            driverRows(state.filteredDrivers, state.translations, viewModel::selectDriver)
         }
     }
 }
 
-private fun LazyListScope.driverRows(drivers: List<String>, onSelect: (String) -> Unit) {
+private fun LazyListScope.driverRows(drivers: List<String>, translations: DriverTranslations, onSelect: (String) -> Unit) {
     if (drivers.isEmpty()) {
         item(key = "empty") { EmptyState(title = "没有匹配的驱动") }
         return
     }
     items(drivers, key = { it }) { driver ->
         OlCard(modifier = Modifier.padding(bottom = Spacing.sm)) {
+            // 有中文名时标题用中文名，副标题保留驱动原名便于对照文档
+            val zhName = translations.driverName(driver)
             GroupRow(
-                title = driver,
+                title = zhName ?: driver,
+                subtitle = zhName?.let { driver },
                 icon = driverIcon(driver),
                 onClick = { onSelect(driver) },
             )

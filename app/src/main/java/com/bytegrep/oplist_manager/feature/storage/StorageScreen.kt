@@ -146,6 +146,7 @@ private fun LazyListScope.storageItems(
     items(state.storages, key = { it.id }) { storage ->
         StorageCard(
             storage = storage,
+            driverLabel = state.translations.driverLabel(storage.driver),
             isBusy = storage.id in state.busyIds,
             onClick = { onEdit(storage.id) },
             onLongClick = { onMore(storage) },
