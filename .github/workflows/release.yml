@@ -17,16 +17,16 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "25"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Resolve version
         id: version
@@ -54,7 +54,16 @@ jobs:
             fi
           done
           mkdir -p keystore
-          echo "$KEYSTORE_BASE64" | base64 --decode > keystore/release.jks
+          # 网页粘贴的 Secret 可能夹带换行/空格/CR，先去除空白再解码
+          if ! printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > keystore/release.jks; then
+            echo "::error::KEYSTORE_BASE64 is not valid Base64. Regenerate it with: base64 -w0 release.jks"
+            exit 1
+          fi
+          echo "Decoded keystore: $(stat -c %s keystore/release.jks) bytes"
+          if ! keytool -list -keystore keystore/release.jks -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null; then
+            echo "::error::Keystore check failed: wrong KEYSTORE_PASSWORD, wrong KEY_ALIAS, or corrupted KEYSTORE_BASE64"
+            exit 1
+          fi
           {
             echo "storeFile=release.jks"
             echo "storePassword=$KEYSTORE_PASSWORD"
@@ -81,7 +90,7 @@ jobs:
           echo "file=$DEST" >> "$GITHUB_OUTPUT"
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: OpenList Manager ${{ github.ref_name }}
           prerelease: ${{ steps.version.outputs.prerelease }}
