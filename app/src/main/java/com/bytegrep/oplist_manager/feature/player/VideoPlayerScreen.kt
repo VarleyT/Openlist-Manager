@@ -5,7 +5,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -32,7 +31,11 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Replay10
 import androidx.compose.material.icons.outlined.ScreenRotation
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,7 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -75,14 +77,11 @@ fun VideoPlayerScreen(
     actions: VideoPlayerViewModel,
     onBack: () -> Unit,
     isLandscape: () -> Boolean,
+    systemControls: PlayerSystemControls,
 ) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .pointerInput(Unit) { detectTapGestures(onTap = { actions.toggleControls() }) },
-    ) {
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
         ContentFrame(player = player, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        PlayerGestureLayer(state, actions, systemControls)
 
         if (state.showLoading) {
             CircularProgressIndicator(Modifier.align(Alignment.Center).size(48.dp), color = OnVideo, strokeWidth = 3.dp)
@@ -110,6 +109,10 @@ fun VideoPlayerScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = OnVideo,
             )
+        }
+
+        state.resumeHint?.let { hint ->
+            ResumeHint(hint, onRestart = actions::restartFromBeginning, modifier = Modifier.align(Alignment.BottomStart))
         }
 
         state.error?.let { error ->
@@ -144,6 +147,7 @@ private fun BoxScope.ControlsOverlay(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        SpeedButton(state.speed, onSelect = actions::setSpeed)
         OverlayIcon(Icons.Outlined.ScreenRotation, "切换横竖屏") { actions.toggleOrientation(isLandscape()) }
     }
 
@@ -151,9 +155,12 @@ private fun BoxScope.ControlsOverlay(
     if (state.error == null && !state.isResolving) {
         Row(
             Modifier.align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xxl),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (state.hasPrevious || state.hasNext) {
+                OverlayIcon(Icons.Outlined.SkipPrevious, "上一个", size = 32.dp, enabled = state.hasPrevious, onClick = actions::playPrevious)
+            }
             OverlayIcon(Icons.Outlined.Replay10, "后退 10 秒", size = 40.dp, enabled = state.isSeekable) {
                 actions.seekBy(-VideoPlayerController.SEEK_INCREMENT_MS)
             }
@@ -168,6 +175,9 @@ private fun BoxScope.ControlsOverlay(
             ) { Icon(icon, label, tint = OnVideo, modifier = Modifier.size(44.dp)) }
             OverlayIcon(Icons.Outlined.Forward10, "前进 10 秒", size = 40.dp, enabled = state.isSeekable) {
                 actions.seekBy(VideoPlayerController.SEEK_INCREMENT_MS)
+            }
+            if (state.hasPrevious || state.hasNext) {
+                OverlayIcon(Icons.Outlined.SkipNext, "下一个", size = 32.dp, enabled = state.hasNext, onClick = actions::playNext)
             }
         }
     }
@@ -282,6 +292,50 @@ private fun ErrorPanel(error: PlayerError, onRetry: () -> Unit, onBack: () -> Un
         }
     }
 }
+
+@Composable
+private fun SpeedButton(speed: Float, onSelect: (Float) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(speedLabel(speed), color = OnVideo, style = MaterialTheme.typography.labelLarge)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            VideoPlayerViewModel.SPEEDS.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            speedLabel(option),
+                            color = if (option == speed) OpenListTheme.colors.accent else Color.Unspecified,
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onSelect(option)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResumeHint(text: String, onRestart: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(start = Spacing.lg, bottom = 96.dp)
+            .background(Scrim, MaterialTheme.shapes.medium)
+            .padding(start = Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text, color = OnVideo, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = onRestart) { Text("从头播放", color = OpenListTheme.colors.accent) }
+    }
+}
+
+internal fun speedLabel(speed: Float): String =
+    if (speed == speed.toInt().toFloat()) "${speed.toInt()}.0x" else "${speed}x"
 
 internal fun formatDuration(ms: Long): String {
     val totalSec = (ms / 1000).coerceAtLeast(0)

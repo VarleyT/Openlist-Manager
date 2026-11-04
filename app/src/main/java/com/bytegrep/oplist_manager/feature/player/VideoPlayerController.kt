@@ -106,6 +106,12 @@ class VideoPlayerController(
 
     fun pause() = exoPlayer.pause()
 
+    /** 切换视频前停止并清空当前媒体，旧视频不再产生进度、结束或错误事件 */
+    fun stopAndClear() {
+        exoPlayer.stop()
+        exoPlayer.clearMediaItems()
+    }
+
     /** 快进/快退跳到最近关键帧，响应更快 */
     fun seekBy(deltaMs: Long) {
         exoPlayer.setSeekParameters(SeekParameters.CLOSEST_SYNC)
@@ -119,6 +125,10 @@ class VideoPlayerController(
     }
 
     fun currentPositionMs(): Long = exoPlayer.currentPosition
+
+    fun durationMs(): Long = exoPlayer.duration.takeIf { it != C.TIME_UNSET }?.coerceAtLeast(0) ?: 0
+
+    fun setSpeed(speed: Float) = exoPlayer.setPlaybackSpeed(speed)
 
     /** 周期性刷新进度（Player.Listener 不会因播放进度变化回调） */
     fun publish() {

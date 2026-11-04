@@ -7,11 +7,17 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import com.bytegrep.oplist_manager.core.common.userMessage
+import com.bytegrep.oplist_manager.data.player.PlaybackEnv
+import com.bytegrep.oplist_manager.data.player.PlaybackPositionStore
 import com.bytegrep.oplist_manager.data.player.PlaybackSourceResolver
+import com.bytegrep.oplist_manager.data.player.Playlist
+import com.bytegrep.oplist_manager.data.player.PositionRules
+import com.bytegrep.oplist_manager.data.player.VideoPlaybackRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import javax.inject.Inject
 
@@ -28,11 +35,13 @@ class VideoPlayerViewModel @Inject constructor(
     @ApplicationContext context: Context,
     okHttpClient: OkHttpClient,
     private val resolver: PlaybackSourceResolver,
+    private val repository: VideoPlaybackRepository,
+    private val positionStore: PlaybackPositionStore,
 ) : ViewModel() {
 
-    private val path: String = savedStateHandle.get<String>(VideoPlayerActivity.EXTRA_PATH).orEmpty()
+    private val initialPath: String = savedStateHandle.get<String>(VideoPlayerActivity.EXTRA_PATH).orEmpty()
 
-    private val _state = MutableStateFlow(VideoPlayerState(title = path.substringAfterLast('/')))
+    private val _state = MutableStateFlow(VideoPlayerState(title = initialPath.substringAfterLast('/')))
     val state: StateFlow<VideoPlayerState> = _state.asStateFlow()
 
     private val controller = VideoPlayerController(
@@ -44,28 +53,78 @@ class VideoPlayerViewModel @Inject constructor(
 
     val player: Player get() = controller.player
 
+    private var env: PlaybackEnv? = null
+    private var playlist = Playlist.single(initialPath)
+    private val currentPath: String get() = playlist.current ?: initialPath
+
+    /** 播放器中实际已加载的路径；切换中为 null。位置保存与错误处理只针对它 */
+    private var loadedPath: String? = null
+    private var playlistLoaded = false
+
     private var resolveJob: Job? = null
     private var progressJob: Job? = null
     private var hideControlsJob: Job? = null
+    private var hintJob: Job? = null
 
-    /** 本次播放已自动重取链接的次数；上限 [MAX_AUTO_RECOVERY]，用户手动重试时清零，避免无限循环 */
+    /** 当前视频已自动重取链接的次数；上限 [MAX_AUTO_RECOVERY]，切换视频或手动重试时清零 */
     private var recoveryCount = 0
 
-    /** 上一次快照的播放状态，用于识别「开始播放」的瞬间 */
+    /** 上一次快照的播放状态，用于识别「开始播放」「播放结束」的瞬间 */
     private var wasPlaying = false
+    private var wasEnded = false
+    private var progressTicks = 0
 
     init {
-        resolveAndLoad(startPositionMs = 0)
+        viewModelScope.launch {
+            loadEnv() ?: return@launch
+            resolveAndLoad(startPositionMs = null)
+            loadPlaylist()
+        }
     }
 
-    private fun resolveAndLoad(startPositionMs: Long) {
+    private suspend fun loadEnv(): PlaybackEnv? = env ?: try {
+        repository.env().also { env = it }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        _state.update { it.copy(isResolving = false, error = PlayerError(e.userMessage(), recoverable = true)) }
+        null
+    }
+
+    /** 同目录列表获取失败不影响当前播放，仅不提供上一个/下一个 */
+    private suspend fun loadPlaylist() {
+        val siblings = try {
+            repository.siblingVideos(initialPath, ::isOnlinePlayableVideo)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return
+        }
+        playlistLoaded = true
+        if (initialPath !in siblings) return
+        playlist = Playlist(siblings, 0).moveTo(currentPath)
+        publishPlaylist()
+    }
+
+    private fun publishPlaylist() {
+        _state.update { it.copy(hasPrevious = playlist.hasPrevious, hasNext = playlist.hasNext) }
+    }
+
+    /**
+     * 解析并加载 [currentPath]。[startPositionMs] 为 null 时尝试从记忆位置续播。
+     */
+    private fun resolveAndLoad(startPositionMs: Long?) {
         resolveJob?.cancel()
-        _state.update { it.copy(isResolving = true, error = null) }
+        val path = currentPath
+        _state.update { it.copy(isResolving = true, error = null, title = path.substringAfterLast('/')) }
         resolveJob = viewModelScope.launch {
+            val currentEnv = loadEnv() ?: return@launch
             try {
-                val source = resolver.resolve(path)
+                val source = resolver.resolve(path, currentEnv)
+                val start = startPositionMs ?: rememberedPosition(currentEnv, path)
                 _state.update { it.copy(title = source.name, isResolving = false) }
-                controller.load(source, startPositionMs)
+                controller.load(source, start)
+                loadedPath = path
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -73,6 +132,24 @@ class VideoPlayerViewModel @Inject constructor(
                     it.copy(isResolving = false, error = PlayerError(e.userMessage(), recoverable = true))
                 }
             }
+        }
+    }
+
+    private suspend fun rememberedPosition(env: PlaybackEnv, path: String): Long {
+        val saved = positionStore.get(env.serverId, path) ?: return 0
+        if (!PositionRules.shouldRemember(saved.positionMs, saved.durationMs)) return 0
+        showHint("已从 ${formatDuration(saved.positionMs)} 继续播放")
+        return saved.positionMs
+    }
+
+    private fun savePosition() {
+        val currentEnv = env ?: return
+        val path = loadedPath ?: return
+        val position = controller.currentPositionMs()
+        val duration = controller.durationMs()
+        // 不可取消：退出页面时 viewModelScope 随即取消，也要保证写入完成
+        viewModelScope.launch {
+            withContext(NonCancellable) { positionStore.save(currentEnv.serverId, path, position, duration) }
         }
     }
 
@@ -89,17 +166,27 @@ class VideoPlayerViewModel @Inject constructor(
                 isSeekable = snapshot.isSeekable,
                 audioUnsupported = snapshot.audioUnsupported,
                 videoAspectRatio = snapshot.videoAspectRatio ?: it.videoAspectRatio,
-                controlsVisible = it.controlsVisible || snapshot.isEnded,
+                controlsVisible = it.controlsVisible || (snapshot.isEnded && !playlist.hasNext),
             )
         }
         updateProgressTicker(snapshot.isPlaying)
         // 仅在开始播放的瞬间启动自动隐藏；进度刷新不能重置计时
         if (snapshot.isPlaying && !wasPlaying) scheduleHideControls()
         if (!snapshot.isPlaying) hideControlsJob?.cancel()
+        if (wasPlaying && !snapshot.isPlaying) savePosition()
+        if (snapshot.isEnded && !wasEnded && loadedPath != null) onEnded()
         wasPlaying = snapshot.isPlaying
+        wasEnded = snapshot.isEnded
+    }
+
+    private fun onEnded() {
+        savePosition()
+        if (playlist.hasNext) playNext()
     }
 
     private fun onPlayerError(error: PlaybackException) {
+        // 切换视频期间旧媒体的错误不处理
+        if (loadedPath == null) return
         val mapped = PlaybackErrorMapper.map(error)
         if (mapped.recoverable && recoveryCount < MAX_AUTO_RECOVERY) {
             // 直链过期 / IP 变化：重新获取地址并从原位置继续
@@ -121,7 +208,17 @@ class VideoPlayerViewModel @Inject constructor(
             while (isActive) {
                 delay(PROGRESS_INTERVAL_MS)
                 controller.publish()
+                if (++progressTicks % SAVE_EVERY_TICKS == 0) savePosition()
             }
+        }
+    }
+
+    private fun showHint(text: String) {
+        hintJob?.cancel()
+        _state.update { it.copy(resumeHint = text) }
+        hintJob = viewModelScope.launch {
+            delay(HINT_DURATION_MS)
+            _state.update { it.copy(resumeHint = null) }
         }
     }
 
@@ -129,7 +226,39 @@ class VideoPlayerViewModel @Inject constructor(
 
     fun retry() {
         recoveryCount = 0
+        if (env == null || !playlistLoaded) {
+            viewModelScope.launch {
+                loadEnv() ?: return@launch
+                resolveAndLoad(startPositionMs = if (loadedPath == null) null else controller.currentPositionMs())
+                if (!playlistLoaded) loadPlaylist()
+            }
+            return
+        }
         resolveAndLoad(startPositionMs = controller.currentPositionMs())
+    }
+
+    fun restartFromBeginning() {
+        hintJob?.cancel()
+        _state.update { it.copy(resumeHint = null) }
+        controller.seekTo(0)
+    }
+
+    fun playNext() = switchTo(playlist.next())
+
+    fun playPrevious() = switchTo(playlist.previous())
+
+    private fun switchTo(target: Playlist?) {
+        target ?: return
+        savePosition()
+        controller.stopAndClear()
+        loadedPath = null
+        playlist = target
+        recoveryCount = 0
+        wasEnded = false
+        publishPlaylist()
+        _state.update { it.copy(videoAspectRatio = null, positionMs = 0, durationMs = 0, audioUnsupported = false) }
+        resolveAndLoad(startPositionMs = null)
+        showControls()
     }
 
     fun togglePlayPause() {
@@ -137,7 +266,17 @@ class VideoPlayerViewModel @Inject constructor(
         showControls()
     }
 
-    fun pause() = controller.pause()
+    /** 离开页面时暂停并保存位置 */
+    fun pause() {
+        controller.pause()
+        savePosition()
+    }
+
+    fun setSpeed(speed: Float) {
+        controller.setSpeed(speed)
+        _state.update { it.copy(speed = speed) }
+        showControls()
+    }
 
     fun seekBy(deltaMs: Long) {
         controller.seekBy(deltaMs)
@@ -179,7 +318,7 @@ class VideoPlayerViewModel @Inject constructor(
         scheduleHideControls()
     }
 
-    /** 手动切换横竖屏；当前为 AUTO 时按视频宽高比推断当前方向再取反 */
+    /** 手动切换横竖屏 */
     fun toggleOrientation(currentIsLandscape: Boolean) {
         val next = if (currentIsLandscape) PlayerOrientation.PORTRAIT else PlayerOrientation.LANDSCAPE
         _state.update { it.copy(orientation = next) }
@@ -191,9 +330,12 @@ class VideoPlayerViewModel @Inject constructor(
         super.onCleared()
     }
 
-    private companion object {
-        const val PROGRESS_INTERVAL_MS = 500L
-        const val CONTROLS_TIMEOUT_MS = 3_500L
-        const val MAX_AUTO_RECOVERY = 3
+    companion object {
+        val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f, 3f)
+        private const val PROGRESS_INTERVAL_MS = 500L
+        private const val SAVE_EVERY_TICKS = 30
+        private const val CONTROLS_TIMEOUT_MS = 3_500L
+        private const val HINT_DURATION_MS = 5_000L
+        private const val MAX_AUTO_RECOVERY = 3
     }
 }

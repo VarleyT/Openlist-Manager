@@ -25,6 +25,11 @@ data class VideoPlayerState(
     /** 锁定后屏蔽所有触摸操作与方向变化，仅保留解锁按钮 */
     val isLocked: Boolean = false,
     val orientation: PlayerOrientation = PlayerOrientation.AUTO,
+    val speed: Float = 1f,
+    val hasPrevious: Boolean = false,
+    val hasNext: Boolean = false,
+    /** 从记忆位置续播时的提示（如「已从 01:10:25 继续播放」），null 不显示 */
+    val resumeHint: String? = null,
 ) {
     val showLoading: Boolean get() = error == null && (isResolving || isBuffering)
 }

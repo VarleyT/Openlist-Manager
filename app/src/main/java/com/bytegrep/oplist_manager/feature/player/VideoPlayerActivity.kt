@@ -3,7 +3,9 @@ package com.bytegrep.oplist_manager.feature.player
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.media.AudioManager
 import android.os.Bundle
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bytegrep.oplist_manager.core.datastore.ThemeMode
 import com.bytegrep.oplist_manager.core.designsystem.theme.OpenListTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlin.math.roundToInt
 
 /**
  * 独立播放 Activity：便于单独处理方向/全屏，并为后续画中画（Activity 级）预留。
@@ -27,6 +30,8 @@ import dagger.hilt.android.AndroidEntryPoint
 class VideoPlayerActivity : ComponentActivity() {
 
     private val viewModel: VideoPlayerViewModel by viewModels()
+
+    private val systemControls by lazy { ActivitySystemControls(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +50,7 @@ class VideoPlayerActivity : ComponentActivity() {
                     actions = viewModel,
                     onBack = ::finish,
                     isLandscape = { resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE },
+                    systemControls = systemControls,
                 )
             }
         }
@@ -94,5 +100,40 @@ class VideoPlayerActivity : ComponentActivity() {
 
         fun intent(context: Context, path: String): Intent =
             Intent(context, VideoPlayerActivity::class.java).putExtra(EXTRA_PATH, path)
+    }
+}
+
+/** 亮度只作用于当前窗口（离开播放页自动恢复系统亮度）；音量调节媒体音量 */
+private class ActivitySystemControls(private val activity: ComponentActivity) : PlayerSystemControls {
+    private val audio = activity.getSystemService(AudioManager::class.java)
+
+    override fun brightness(): Float {
+        val window = activity.window.attributes.screenBrightness
+        if (window >= 0f) return window
+        val system = Settings.System.getInt(activity.contentResolver, Settings.System.SCREEN_BRIGHTNESS, DEFAULT_SYSTEM_BRIGHTNESS)
+        return (system / MAX_SYSTEM_BRIGHTNESS).coerceIn(0f, 1f)
+    }
+
+    override fun setBrightness(level: Float) {
+        activity.window.attributes = activity.window.attributes.apply {
+            // 不设为 0，避免屏幕完全变黑
+            screenBrightness = level.coerceIn(MIN_BRIGHTNESS, 1f)
+        }
+    }
+
+    override fun volume(): Float {
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        return audio.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / max
+    }
+
+    override fun setVolume(level: Float) {
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, (level * max).roundToInt(), 0)
+    }
+
+    private companion object {
+        const val DEFAULT_SYSTEM_BRIGHTNESS = 128
+        const val MAX_SYSTEM_BRIGHTNESS = 255f
+        const val MIN_BRIGHTNESS = 0.01f
     }
 }

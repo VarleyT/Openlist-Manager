@@ -30,6 +30,8 @@ data class PlaybackSource(
 /** 解析播放源所需的会话环境 */
 data class PlaybackEnv(
     val serverBaseUrl: String,
+    /** 服务器配置 ID，用于区分不同服务器的播放位置 */
+    val serverId: String = "",
     val isAdmin: Boolean,
     val basePath: String = "/",
 )
