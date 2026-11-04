@@ -33,6 +33,7 @@ import androidx.compose.material.icons.outlined.Replay10
 import androidx.compose.material.icons.outlined.ScreenRotation
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -81,6 +82,7 @@ fun VideoPlayerScreen(
 ) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         ContentFrame(player = player, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        PlayerSubtitles(player)
         PlayerGestureLayer(state, actions, systemControls)
 
         if (state.showLoading) {
@@ -97,9 +99,14 @@ fun VideoPlayerScreen(
             }
         }
 
-        if (state.audioUnsupported && state.error == null) {
+        val notice = state.notice ?: if (state.audioUnsupported) {
+            "设备不支持该视频的音频编码（如 DTS / TrueHD），当前无声播放，可切换音轨或尝试外部播放器"
+        } else {
+            null
+        }
+        if (notice != null && state.error == null) {
             Text(
-                "设备不支持该视频的音频编码（如 DTS / TrueHD），当前无声播放，可尝试外部播放器",
+                notice,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .windowInsetsPadding(WindowInsets.safeDrawing)
@@ -113,6 +120,15 @@ fun VideoPlayerScreen(
 
         state.resumeHint?.let { hint ->
             ResumeHint(hint, onRestart = actions::restartFromBeginning, modifier = Modifier.align(Alignment.BottomStart))
+        }
+
+        if (state.showTrackDialog) {
+            TrackDialog(
+                menu = state.trackMenu,
+                onSelect = actions::selectTrack,
+                onDisableSubtitles = actions::disableSubtitles,
+                onDismiss = actions::closeTrackDialog,
+            )
         }
 
         state.error?.let { error ->
@@ -147,6 +163,9 @@ private fun BoxScope.ControlsOverlay(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        if (!state.trackMenu.isEmpty) {
+            OverlayIcon(Icons.Outlined.Subtitles, "音轨与字幕", actions::openTrackDialog)
+        }
         SpeedButton(state.speed, onSelect = actions::setSpeed)
         OverlayIcon(Icons.Outlined.ScreenRotation, "切换横竖屏") { actions.toggleOrientation(isLandscape()) }
     }

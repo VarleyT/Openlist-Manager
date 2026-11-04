@@ -6,9 +6,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.datasource.HttpDataSource
 import com.bytegrep.oplist_manager.core.common.userMessage
 import com.bytegrep.oplist_manager.data.player.PlaybackEnv
 import com.bytegrep.oplist_manager.data.player.PlaybackPositionStore
+import com.bytegrep.oplist_manager.data.player.PlaybackSource
 import com.bytegrep.oplist_manager.data.player.PlaybackSourceResolver
 import com.bytegrep.oplist_manager.data.player.Playlist
 import com.bytegrep.oplist_manager.data.player.PositionRules
@@ -59,12 +61,20 @@ class VideoPlayerViewModel @Inject constructor(
 
     /** 播放器中实际已加载的路径；切换中为 null。位置保存与错误处理只针对它 */
     private var loadedPath: String? = null
+
+    /** 当前视频的外挂字幕加载失败后置为 true，重新加载时不再附带外挂字幕 */
+    private var externalSubtitlesFailed = false
+    private var loadedSource: PlaybackSource? = null
+
+    /** 当前加载的媒体是否已进入过 READY；外挂字幕在准备阶段加载，之后的错误与字幕无关 */
+    private var itemReady = false
     private var playlistLoaded = false
 
     private var resolveJob: Job? = null
     private var progressJob: Job? = null
     private var hideControlsJob: Job? = null
     private var hintJob: Job? = null
+    private var noticeJob: Job? = null
 
     /** 当前视频已自动重取链接的次数；上限 [MAX_AUTO_RECOVERY]，切换视频或手动重试时清零 */
     private var recoveryCount = 0
@@ -123,7 +133,7 @@ class VideoPlayerViewModel @Inject constructor(
                 val source = resolver.resolve(path, currentEnv)
                 val start = startPositionMs ?: rememberedPosition(currentEnv, path)
                 _state.update { it.copy(title = source.name, isResolving = false) }
-                controller.load(source, start)
+                loadSource(source, start)
                 loadedPath = path
             } catch (e: CancellationException) {
                 throw e
@@ -133,6 +143,13 @@ class VideoPlayerViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun loadSource(source: PlaybackSource, startPositionMs: Long) {
+        val effective = if (externalSubtitlesFailed) source.copy(subtitles = emptyList()) else source
+        loadedSource = effective
+        itemReady = false
+        controller.load(effective, startPositionMs)
     }
 
     private suspend fun rememberedPosition(env: PlaybackEnv, path: String): Long {
@@ -154,6 +171,7 @@ class VideoPlayerViewModel @Inject constructor(
     }
 
     private fun onSnapshot(snapshot: PlaybackSnapshot) {
+        if (snapshot.isReady && loadedPath != null) itemReady = true
         _state.update {
             it.copy(
                 isBuffering = snapshot.isBuffering,
@@ -165,6 +183,7 @@ class VideoPlayerViewModel @Inject constructor(
                 bufferedMs = snapshot.bufferedMs,
                 isSeekable = snapshot.isSeekable,
                 audioUnsupported = snapshot.audioUnsupported,
+                trackMenu = snapshot.trackMenu,
                 videoAspectRatio = snapshot.videoAspectRatio ?: it.videoAspectRatio,
                 controlsVisible = it.controlsVisible || (snapshot.isEnded && !playlist.hasNext),
             )
@@ -187,6 +206,14 @@ class VideoPlayerViewModel @Inject constructor(
     private fun onPlayerError(error: PlaybackException) {
         // 切换视频期间旧媒体的错误不处理
         if (loadedPath == null) return
+        // 外挂字幕（/p 代理 403 等）失败会导致整体报错：先去掉外挂字幕重试，保证视频能播
+        val source = loadedSource
+        if (source != null && !externalSubtitlesFailed && isSubtitleFailure(error, source)) {
+            externalSubtitlesFailed = true
+            showNotice("外挂字幕加载失败，已关闭外挂字幕")
+            loadSource(source, controller.currentPositionMs())
+            return
+        }
         val mapped = PlaybackErrorMapper.map(error)
         if (mapped.recoverable && recoveryCount < MAX_AUTO_RECOVERY) {
             // 直链过期 / IP 变化：重新获取地址并从原位置继续
@@ -210,6 +237,24 @@ class VideoPlayerViewModel @Inject constructor(
                 controller.publish()
                 if (++progressTicks % SAVE_EVERY_TICKS == 0) savePosition()
             }
+        }
+    }
+
+    /** 出错请求的地址属于外挂字幕时才判定为字幕加载失败 */
+    private fun isSubtitleFailure(error: PlaybackException, source: PlaybackSource): Boolean {
+        if (source.subtitles.isEmpty() || itemReady) return false
+        val failedUri = generateSequence<Throwable>(error) { it.cause }
+            .filterIsInstance<HttpDataSource.HttpDataSourceException>()
+            .firstOrNull()?.dataSpec?.uri?.toString() ?: return false
+        return source.subtitles.any { it.url == failedUri }
+    }
+
+    private fun showNotice(text: String) {
+        noticeJob?.cancel()
+        _state.update { it.copy(notice = text) }
+        noticeJob = viewModelScope.launch {
+            delay(HINT_DURATION_MS)
+            _state.update { it.copy(notice = null) }
         }
     }
 
@@ -251,7 +296,10 @@ class VideoPlayerViewModel @Inject constructor(
         target ?: return
         savePosition()
         controller.stopAndClear()
+        controller.clearTrackOverrides()
         loadedPath = null
+        loadedSource = null
+        externalSubtitlesFailed = false
         playlist = target
         recoveryCount = 0
         wasEnded = false
@@ -271,6 +319,20 @@ class VideoPlayerViewModel @Inject constructor(
         controller.pause()
         savePosition()
     }
+
+    fun openTrackDialog() {
+        hideControlsJob?.cancel()
+        _state.update { it.copy(showTrackDialog = true) }
+    }
+
+    fun closeTrackDialog() {
+        _state.update { it.copy(showTrackDialog = false) }
+        showControls()
+    }
+
+    fun selectTrack(option: TrackOption) = controller.selectTrack(option)
+
+    fun disableSubtitles() = controller.disableSubtitles()
 
     fun setSpeed(speed: Float) {
         controller.setSpeed(speed)
@@ -306,7 +368,7 @@ class VideoPlayerViewModel @Inject constructor(
 
     private fun scheduleHideControls() {
         hideControlsJob?.cancel()
-        if (!_state.value.isPlaying) return
+        if (!_state.value.isPlaying || _state.value.showTrackDialog) return
         hideControlsJob = viewModelScope.launch {
             delay(CONTROLS_TIMEOUT_MS)
             hideControls()

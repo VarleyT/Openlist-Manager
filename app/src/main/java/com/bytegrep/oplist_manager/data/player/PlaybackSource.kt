@@ -25,6 +25,15 @@ data class PlaybackSource(
     val mimeType: String? = null,
     val kind: PlaybackSourceKind,
     val size: Long = 0,
+    /** 外挂字幕（同目录同名前缀文件，经 OpenList /p 代理加载） */
+    val subtitles: List<SubtitleSource> = emptyList(),
+)
+
+/** 外挂字幕文件 */
+data class SubtitleSource(
+    val url: String,
+    val name: String,
+    val mimeType: String,
 )
 
 /** 解析播放源所需的会话环境 */

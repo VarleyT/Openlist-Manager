@@ -129,7 +129,13 @@ feature/player/
 
 原计划： 倍速（0.5–3x）；手势（左侧上下滑调亮度，右侧调音量，横向滑动调进度，双击暂停）；播放位置记忆；同目录连续播放（复用 `fs/list` 结果，按当前排序方式）。
 
-**第 3 阶段：字幕与轨道** — 外挂 SRT/ASS/VTT：自动匹配 `related`，也可手动从同目录选择；内封字幕和音轨的选择（`TrackSelectionOverride`）；字幕显示（SubtitleView）。
+**第 3 阶段：字幕与轨道（已完成）**
+
+> 设备实测（2026-11-04）：外挂 SRT 经 /p 代理加载并自动选中、正常显示；MKV 内封多条 ASS 字幕与音轨正确列出，可切换；同名轨道自动加序号。
+> 内封字幕常带 default 标记，存在外挂字幕时优先选外挂字幕（用户关闭字幕或手动选择后不再干预）。
+> 未实现：从同目录手动选择任意字幕文件。
+
+原计划： 外挂 SRT/ASS/VTT：自动匹配 `related`，也可手动从同目录选择；内封字幕和音轨的选择（`TrackSelectionOverride`）；字幕显示（SubtitleView）。
 
 **第 4 阶段：PiP 与后台** — 迁移到 `MediaSessionService` + `MediaController`；画中画（Android 12+ 使用 `setAutoEnterEnabled`、`sourceRectHint`）；后台播放和媒体通知（`FOREGROUND_SERVICE_MEDIA_PLAYBACK`）。第 1 阶段的 Controller 保持面向 `Player` 接口编程，以便后续替换为 MediaController。
 

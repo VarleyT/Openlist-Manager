@@ -2,6 +2,8 @@ package com.bytegrep.oplist_manager.data.player
 
 import com.bytegrep.oplist_manager.core.common.AppException
 import com.bytegrep.oplist_manager.core.common.joinPath
+import com.bytegrep.oplist_manager.core.common.parentPath
+import com.bytegrep.oplist_manager.data.model.FsObject
 import com.bytegrep.oplist_manager.core.network.ApiClientFactory
 import com.bytegrep.oplist_manager.core.network.isSameOrigin
 import kotlinx.coroutines.CancellationException
@@ -35,6 +37,7 @@ class PlaybackSourceResolver @Inject constructor(
             mimeType = mimeTypeHint(file.name),
             kind = if (server != null && server.isSameOrigin(raw)) PlaybackSourceKind.OPENLIST else PlaybackSourceKind.DIRECT,
             size = file.size,
+            subtitles = server?.let { subtitlesOf(file.related.orEmpty(), path, it, env.basePath) }.orEmpty(),
         )
         if (base.kind != PlaybackSourceKind.DIRECT || !env.isAdmin) return base
         return driverLinkOrNull(base, env) ?: base
@@ -56,6 +59,37 @@ class PlaybackSourceResolver @Inject constructor(
     }
 
     companion object {
+        private val SUBTITLE_MIME = mapOf(
+            "srt" to "application/x-subrip",
+            "ass" to "text/x-ssa",
+            "ssa" to "text/x-ssa",
+            "vtt" to "text/vtt",
+        )
+
+        /**
+         * 从 fs/get 的 related 中挑出字幕，拼成 OpenList 代理地址 `/p{base_path}{dir}/{name}?sign=`
+         * （与官方前端一致；/p 不校验 Authorization，只校验各文件自带的 sign）。
+         */
+        fun subtitlesOf(related: List<FsObject>, videoPath: String, server: HttpUrl, basePath: String): List<SubtitleSource> {
+            val dir = parentPath(videoPath)
+            return related.asSequence()
+                .filter { !it.isDir }
+                .mapNotNull { file ->
+                    val mime = SUBTITLE_MIME[file.name.substringAfterLast('.', "").lowercase()] ?: return@mapNotNull null
+                    val fullPath = fullPath(basePath, joinPath(dir, file.name))
+                    // 在服务器地址原有路径之后追加（兼容部署在子路径下的 OpenList）
+                    val url = server.newBuilder()
+                        .addPathSegment("p")
+                        .addPathSegments(fullPath.trimStart('/'))
+                        .query(null)
+                        .apply { if (file.sign.isNotEmpty()) addQueryParameter("sign", file.sign) }
+                        .build()
+                    SubtitleSource(url = url.toString(), name = file.name, mimeType = mime)
+                }
+                .sortedWith(compareBy(NaturalOrder) { it.name })
+                .toList()
+        }
+
         /** 由播放器自身管理或可能破坏请求的头，不接受驱动下发 */
         private val BLOCKED_HEADERS = setOf("host", "range", "content-length", "connection", "accept-encoding", "transfer-encoding")
 
