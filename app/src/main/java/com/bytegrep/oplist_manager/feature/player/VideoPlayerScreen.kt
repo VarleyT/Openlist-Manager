@@ -1,5 +1,6 @@
 package com.bytegrep.oplist_manager.feature.player
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -8,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -70,6 +72,9 @@ private val OnVideo = Color.White
 private val OnVideoDim = Color.White.copy(alpha = 0.7f)
 private val Scrim = Color.Black.copy(alpha = 0.55f)
 
+/** 竖屏时锁定按钮距底部的距离，需高于进度条 */
+private val LockButtonPortraitBottom = 96.dp
+
 @OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerScreen(
@@ -80,7 +85,10 @@ fun VideoPlayerScreen(
     isLandscape: () -> Boolean,
     systemControls: PlayerSystemControls,
 ) {
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    // 锁定时拦截返回键，只唤出解锁按钮，避免误触退出
+    BackHandler(enabled = state.isLocked, onBack = actions::showControls)
+
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
         ContentFrame(player = player, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
         PlayerSubtitles(player)
         PlayerGestureLayer(state, actions, systemControls)
@@ -89,12 +97,19 @@ fun VideoPlayerScreen(
             CircularProgressIndicator(Modifier.align(Alignment.Center).size(48.dp), color = OnVideo, strokeWidth = 3.dp)
         }
 
+        // 竖屏时中部控制行几乎占满宽度，锁定按钮放到左下角进度条上方，避免与「上一个」重叠
+        val lockModifier = if (maxHeight > maxWidth) {
+            Modifier.align(Alignment.BottomStart).padding(bottom = LockButtonPortraitBottom)
+        } else {
+            Modifier.align(Alignment.CenterStart)
+        }
+
         AnimatedVisibility(state.controlsVisible, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize()) {
                 if (state.isLocked) {
-                    LockButton(locked = true, onClick = actions::toggleLock, modifier = Modifier.align(Alignment.CenterStart))
+                    LockButton(locked = true, onClick = actions::toggleLock, modifier = lockModifier)
                 } else {
-                    ControlsOverlay(state, actions, onBack, isLandscape)
+                    ControlsOverlay(state, actions, onBack, isLandscape, lockModifier)
                 }
             }
         }
@@ -143,6 +158,7 @@ private fun BoxScope.ControlsOverlay(
     actions: VideoPlayerViewModel,
     onBack: () -> Unit,
     isLandscape: () -> Boolean,
+    lockModifier: Modifier,
 ) {
     // 顶部：返回 + 标题 + 旋转
     Row(
@@ -201,7 +217,7 @@ private fun BoxScope.ControlsOverlay(
         }
     }
 
-    LockButton(locked = false, onClick = actions::toggleLock, modifier = Modifier.align(Alignment.CenterStart))
+    LockButton(locked = false, onClick = actions::toggleLock, modifier = lockModifier)
 
     // 底部：进度
     ProgressBar(

@@ -12,6 +12,10 @@ import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -172,16 +176,29 @@ private fun TextPreviewCard(text: TextPreview) {
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(Spacing.lg),
                 )
-                is TextPreview.Content -> Text(
-                    text.text.ifEmpty { "（空文件）" },
+                is TextPreview.Content -> TextPreviewLines(text.text)
+            }
+        }
+    }
+}
+
+/** 按行懒加载渲染：只排版可见行，大文件不再一次性阻塞主线程 */
+@Composable
+private fun TextPreviewLines(text: String) {
+    val lines = remember(text) { if (text.isEmpty()) listOf("（空文件）") else splitPreviewLines(text) }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .horizontalScroll(rememberScrollState()),
+    ) {
+        LazyColumn(Modifier.fillMaxHeight(), contentPadding = PaddingValues(Spacing.md)) {
+            items(lines) { line ->
+                Text(
+                    line,
                     fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.bodySmall,
                     color = OpenListTheme.colors.ink,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .horizontalScroll(rememberScrollState())
-                        .padding(Spacing.md),
+                    softWrap = false,
                 )
             }
         }

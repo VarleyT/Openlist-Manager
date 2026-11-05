@@ -149,7 +149,7 @@ private fun LazyListScope.storageItems(
             driverLabel = state.translations.driverLabel(storage.driver),
             isBusy = storage.id in state.busyIds,
             onClick = { onEdit(storage.id) },
-            onLongClick = { onMore(storage) },
+            onMore = { onMore(storage) },
             onReload = { onReload(storage) },
         )
     }

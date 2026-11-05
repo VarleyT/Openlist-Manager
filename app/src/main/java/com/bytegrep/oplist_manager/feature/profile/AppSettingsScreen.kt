@@ -81,6 +81,7 @@ fun AppSettingsScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltView
                             subtitle = if (dynamicSupported) "跟随系统壁纸取色（Material You）" else "需要 Android 12 及以上",
                             icon = Icons.Outlined.ColorLens,
                             showChevron = false,
+                            onClick = if (dynamicSupported) ({ viewModel.setDynamicColor(!settings.dynamicColor) }) else null,
                             trailing = {
                                 Switch(checked = settings.dynamicColor, onCheckedChange = viewModel::setDynamicColor, enabled = dynamicSupported)
                             },
@@ -97,6 +98,7 @@ fun AppSettingsScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltView
                             subtitle = "文件列表默认以网格方式显示",
                             icon = Icons.Outlined.GridView,
                             showChevron = false,
+                            onClick = { viewModel.setFileGrid(!settings.fileGrid) },
                             trailing = { Switch(checked = settings.fileGrid, onCheckedChange = viewModel::setFileGrid) },
                         )
                     },
@@ -111,6 +113,7 @@ fun AppSettingsScreen(onBack: () -> Unit, viewModel: ProfileViewModel = hiltView
                             subtitle = "每天最多检查一次，发现新版本时提醒",
                             icon = Icons.Outlined.SystemUpdate,
                             showChevron = false,
+                            onClick = { viewModel.setAutoCheckUpdate(!settings.autoCheckUpdate) },
                             trailing = { Switch(checked = settings.autoCheckUpdate, onCheckedChange = viewModel::setAutoCheckUpdate) },
                         )
                     },

@@ -117,7 +117,13 @@ private fun SettingEditor(
 ) {
     val sensitive = isSensitiveSetting(item.key)
     when (item.type) {
-        TYPE_SELECT -> SelectEditor(value = value, options = parseOptions(item.options), enabled = enabled, onSelect = onValueChange)
+        TYPE_SELECT -> SelectEditor(
+            value = value,
+            options = parseOptions(item.options),
+            label = { settingOptionLabel(item.key, it) },
+            enabled = enabled,
+            onSelect = onValueChange,
+        )
         TYPE_TEXT -> TextPreview(value = value, sensitive = sensitive, enabled = enabled, onClick = onEditText)
         else -> InlineEditor(
             value = value,
@@ -166,7 +172,13 @@ internal fun parseOptions(options: String): List<String> =
     options.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
 @Composable
-private fun SelectEditor(value: String, options: List<String>, enabled: Boolean, onSelect: (String) -> Unit) {
+private fun SelectEditor(
+    value: String,
+    options: List<String>,
+    label: (String) -> String,
+    enabled: Boolean,
+    onSelect: (String) -> Unit,
+) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(
@@ -175,13 +187,13 @@ private fun SelectEditor(value: String, options: List<String>, enabled: Boolean,
             shape = RoundedCornerShape(Radius.button),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(value.ifBlank { "未设置" }, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (value.isBlank()) "未设置" else label(value), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Icon(Icons.Filled.ArrowDropDown, contentDescription = "选择")
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option, fontWeight = if (option == value) FontWeight.SemiBold else FontWeight.Normal) },
+                    text = { Text(label(option), fontWeight = if (option == value) FontWeight.SemiBold else FontWeight.Normal) },
                     onClick = {
                         expanded = false
                         onSelect(option)

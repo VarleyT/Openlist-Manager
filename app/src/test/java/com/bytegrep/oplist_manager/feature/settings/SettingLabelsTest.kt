@@ -16,6 +16,22 @@ class SettingLabelsTest {
     }
 
     @Test
+    fun `select options of known settings map to chinese labels`() {
+        assertEquals("全部", settingOptionLabel("pagination_type", "all"))
+        assertEquals("自动加载更多", settingOptionLabel("pagination_type", "auto_load_more"))
+        assertEquals("响应式", settingOptionLabel("settings_layout", "responsive"))
+        assertEquals("不启用", settingOptionLabel("search_index", "none"))
+        assertEquals("最大 980px", settingOptionLabel("home_container", "max_980px"))
+    }
+
+    @Test
+    fun `unknown select options fall back to raw value`() {
+        assertEquals("Github", settingOptionLabel("sso_login_platform", "Github"))
+        assertEquals("new_mode", settingOptionLabel("pagination_type", "new_mode"))
+        assertEquals("all", settingOptionLabel("unknown_key", "all"))
+    }
+
+    @Test
     fun `unknown key falls back to raw key`() {
         assertEquals("some_new_setting", settingLabel("some_new_setting"))
         assertEquals("", settingLabel(""))

@@ -29,6 +29,9 @@ fun togglePermission(mask: Int, bit: Int, enabled: Boolean): Int {
     return if (enabled) mask or flag else mask and flag.inv()
 }
 
+/** 新建用户的初始表单：OpenList 创建用户时会把 allow_ldap=false 强制写成 true，默认值与之保持一致 */
+val NEW_USER_FORM = UserDto(allowLdap = true)
+
 data class UserEditUiState(
     val isNew: Boolean,
     val isAdminSession: Boolean = true,
@@ -67,6 +70,7 @@ class UserEditViewModel @Inject constructor(
             isNew = userId < 0,
             isAdminSession = session.currentUser.value?.isAdmin != false,
             isLoading = userId >= 0,
+            form = if (userId < 0) NEW_USER_FORM else UserDto(),
         ),
     )
     val state: StateFlow<UserEditUiState> = _state.asStateFlow()

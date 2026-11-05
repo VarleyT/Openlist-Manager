@@ -8,6 +8,19 @@ enum class FileKind { FOLDER, IMAGE, VIDEO, AUDIO, TEXT, PDF, ARCHIVE, OTHER }
 /** 文本预览大小上限：512KB */
 const val TEXT_PREVIEW_LIMIT: Long = 512 * 1024L
 
+/** 预览时单行最大字符数，超长行（如压缩成一行的 JSON）按此切段，避免单个文本排版阻塞主线程 */
+const val TEXT_PREVIEW_MAX_LINE: Int = 2_000
+
+private val BYTE_ORDER_MARK = Char(0xFEFF)
+
+/** 把预览文本拆成按行渲染的片段：去掉 BOM，兼容 CRLF，超长行切段 */
+fun splitPreviewLines(text: String, maxLineLength: Int = TEXT_PREVIEW_MAX_LINE): List<String> {
+    require(maxLineLength > 0) { "maxLineLength must be positive: $maxLineLength" }
+    return text.removePrefix(BYTE_ORDER_MARK.toString())
+        .lines()
+        .flatMap { line -> if (line.length <= maxLineLength) listOf(line) else line.chunked(maxLineLength) }
+}
+
 private val IMAGE_EXT = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "heif", "svg", "ico", "avif")
 private val VIDEO_EXT = setOf("mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v", "ts", "rmvb", "3gp")
 private val AUDIO_EXT = setOf("mp3", "flac", "wav", "aac", "ogg", "m4a", "wma", "ape", "opus")

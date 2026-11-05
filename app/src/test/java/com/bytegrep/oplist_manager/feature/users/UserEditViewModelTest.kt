@@ -90,11 +90,20 @@ class UserEditViewModelTest {
         val state = vm.state.value
         assertTrue(state.isNew)
         assertFalse(state.isLoading)
-        assertEquals(UserDto(), state.form)
+        assertEquals(UserDto(allowLdap = true), state.form)
         assertNull(state.original)
         assertFalse(state.canDelete)
         assertFalse(state.canCancel2fa)
         coVerify(exactly = 0) { repository.get(any()) }
+    }
+
+    @Test
+    fun `new user form defaults allow ldap on to match server create behavior`() = runTest(dispatcher) {
+        // OpenList 创建用户时会把 allow_ldap=false 强制写成 true，新建表单默认值需与之一致
+        val vm = createViewModel(-1)
+        advanceUntilIdle()
+
+        assertTrue(vm.state.value.form.allowLdap)
     }
 
     @Test

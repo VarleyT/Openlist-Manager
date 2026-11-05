@@ -117,9 +117,37 @@ private val SETTING_LABELS: Map<String, String> = mapOf(
     "task_decompress_upload_thread_num" to "解压上传线程数",
 )
 
+/** 下拉类设置的选项中文名：key -> (选项原值 -> 显示名)；品牌名（如 SSO 平台）保持原样 */
+private val SETTING_OPTION_LABELS: Map<String, Map<String, String>> = mapOf(
+    "pagination_type" to mapOf(
+        "all" to "全部",
+        "pagination" to "分页",
+        "load_more" to "加载更多",
+        "auto_load_more" to "自动加载更多",
+    ),
+    "home_container" to mapOf(
+        "max_980px" to "最大 980px",
+        "hope_container" to "Hope 容器",
+    ),
+    "settings_layout" to mapOf(
+        "list" to "列表",
+        "responsive" to "响应式",
+    ),
+    "search_index" to mapOf(
+        "database" to "数据库",
+        "database_non_full_text" to "数据库（非全文）",
+        "bleve" to "Bleve",
+        "meilisearch" to "Meilisearch",
+        "none" to "不启用",
+    ),
+)
+
 private val SENSITIVE_MARKERS = listOf("token", "secret", "password", "key")
 
 fun settingLabel(key: String): String = SETTING_LABELS[key] ?: key
+
+/** 下拉选项的显示名；未收录时回退原值。提交给服务端的仍是原值 */
+fun settingOptionLabel(key: String, option: String): String = SETTING_OPTION_LABELS[key]?.get(option) ?: option
 
 /** key 中包含 token/secret/password/key 视为敏感字段，默认遮罩显示 */
 fun isSensitiveSetting(key: String): Boolean {

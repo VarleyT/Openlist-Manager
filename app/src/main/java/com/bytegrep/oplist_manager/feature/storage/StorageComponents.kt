@@ -16,7 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Cloud
@@ -106,7 +107,8 @@ fun StorageCard(
     driverLabel: String,
     isBusy: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    /** 打开操作菜单（编辑 / 启用禁用 / 删除），长按卡片与右侧「更多」按钮共用 */
+    onMore: () -> Unit,
     onReload: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -114,16 +116,16 @@ fun StorageCard(
     OlCard(
         modifier = modifier
             .clip(RoundedCornerShape(Radius.card))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .combinedClickable(onClick = onClick, onLongClick = onMore),
         borderColor = if (storage.isError) colors.danger.copy(alpha = 0.3f) else colors.edge,
     ) {
-        StorageCardHeader(storage, driverLabel)
+        StorageCardHeader(storage, driverLabel, onMore)
         if (storage.isError) StorageErrorBar(storage.status, isBusy, onReload)
     }
 }
 
 @Composable
-private fun StorageCardHeader(storage: Storage, driverLabel: String) {
+private fun StorageCardHeader(storage: Storage, driverLabel: String, onMore: () -> Unit) {
     val colors = OpenListTheme.colors
     Row(Modifier.fillMaxWidth().padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
         IconBlock(
@@ -159,7 +161,9 @@ private fun StorageCardHeader(storage: Storage, driverLabel: String) {
         }
         Spacer(Modifier.width(Spacing.sm))
         StorageStatusPill(storage)
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.ink3)
+        IconButton(onClick = onMore) {
+            Icon(Icons.Outlined.MoreHoriz, contentDescription = "更多", tint = colors.ink3)
+        }
     }
 }
 
