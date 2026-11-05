@@ -42,7 +42,7 @@ class PlaybackPositionStore @Inject constructor(
         null
     }
 
-    /** 按 [PositionRules] 决定保存或清除（已看完/刚开始不记忆） */
+    /** 按 [PositionRules.decide] 决定保存、清除或保持原记录（已看完/刚开始不记忆，时长未知不改动） */
     suspend fun save(serverId: String, path: String, positionMs: Long, durationMs: Long, now: Long = System.currentTimeMillis()) {
         val key = keyOf(serverId, path)
         try {
@@ -53,13 +53,17 @@ class PlaybackPositionStore @Inject constructor(
     }
 
     private suspend fun write(key: Preferences.Key<String>, positionMs: Long, durationMs: Long, now: Long) {
+        val action = PositionRules.decide(positionMs, durationMs)
+        if (action == PositionAction.KEEP) return
         context.positionDataStore.edit { prefs ->
-            if (!PositionRules.shouldRemember(positionMs, durationMs)) {
-                prefs.remove(key)
-                return@edit
+            when (action) {
+                PositionAction.CLEAR -> prefs.remove(key)
+                PositionAction.SAVE -> {
+                    prefs[key] = SavedPosition(positionMs, durationMs, now).encode()
+                    evictOldest(prefs)
+                }
+                PositionAction.KEEP -> Unit
             }
-            prefs[key] = SavedPosition(positionMs, durationMs, now).encode()
-            evictOldest(prefs)
         }
     }
 
@@ -101,4 +105,17 @@ object PositionRules {
         if (positionMs < MIN_POSITION_MS || durationMs <= 0) return false
         return positionMs < durationMs - END_MARGIN_MS && positionMs < durationMs * FINISHED_RATIO
     }
+
+    /**
+     * 保存时对已有记录的处理。时长未知（媒体仍在准备、准备失败、直播）时拿到的位置不可信，
+     * 保持原记录不动，避免在加载完成前退出就把之前的进度清掉。
+     */
+    fun decide(positionMs: Long, durationMs: Long): PositionAction = when {
+        durationMs <= 0 -> PositionAction.KEEP
+        shouldRemember(positionMs, durationMs) -> PositionAction.SAVE
+        else -> PositionAction.CLEAR
+    }
 }
+
+/** 保存播放位置时对记录的操作 */
+enum class PositionAction { SAVE, CLEAR, KEEP }

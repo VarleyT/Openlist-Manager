@@ -64,6 +64,9 @@ class VideoPlayerViewModel @Inject constructor(
 
     /** 当前视频的外挂字幕加载失败后置为 true，重新加载时不再附带外挂字幕 */
     private var externalSubtitlesFailed = false
+
+    /** 已去掉外挂字幕重试，待进入 READY 后再提示用户 */
+    private var subtitleNoticePending = false
     private var loadedSource: PlaybackSource? = null
 
     /** 当前加载的媒体是否已进入过 READY；外挂字幕在准备阶段加载，之后的错误与字幕无关 */
@@ -171,7 +174,13 @@ class VideoPlayerViewModel @Inject constructor(
     }
 
     private fun onSnapshot(snapshot: PlaybackSnapshot) {
-        if (snapshot.isReady && loadedPath != null) itemReady = true
+        if (snapshot.isReady && loadedPath != null) {
+            itemReady = true
+            if (subtitleNoticePending) {
+                subtitleNoticePending = false
+                showNotice("外挂字幕加载失败，已关闭外挂字幕")
+            }
+        }
         _state.update {
             it.copy(
                 isBuffering = snapshot.isBuffering,
@@ -208,12 +217,14 @@ class VideoPlayerViewModel @Inject constructor(
         if (loadedPath == null) return
         // 外挂字幕（/p 代理 403 等）失败会导致整体报错：先去掉外挂字幕重试，保证视频能播
         val source = loadedSource
-        if (source != null && !externalSubtitlesFailed && isSubtitleFailure(error, source)) {
+        if (source != null && isSubtitleFailure(error, source)) {
             externalSubtitlesFailed = true
-            showNotice("外挂字幕加载失败，已关闭外挂字幕")
+            // 等去掉字幕后真正能播再提示；若视频本身有问题，直接展示视频错误
+            subtitleNoticePending = true
             loadSource(source, controller.currentPositionMs())
             return
         }
+        subtitleNoticePending = false
         val mapped = PlaybackErrorMapper.map(error)
         if (mapped.recoverable && recoveryCount < MAX_AUTO_RECOVERY) {
             // 直链过期 / IP 变化：重新获取地址并从原位置继续
@@ -240,13 +251,17 @@ class VideoPlayerViewModel @Inject constructor(
         }
     }
 
-    /** 出错请求的地址属于外挂字幕时才判定为字幕加载失败 */
     private fun isSubtitleFailure(error: PlaybackException, source: PlaybackSource): Boolean {
-        if (source.subtitles.isEmpty() || itemReady) return false
         val failedUri = generateSequence<Throwable>(error) { it.cause }
             .filterIsInstance<HttpDataSource.HttpDataSourceException>()
-            .firstOrNull()?.dataSpec?.uri?.toString() ?: return false
-        return source.subtitles.any { it.url == failedUri }
+            .firstOrNull()?.dataSpec?.uri?.toString()
+        return SubtitleFallback.shouldRetryWithoutSubtitles(
+            errorCode = error.errorCode,
+            failedHttpUri = failedUri,
+            subtitleUrls = source.subtitles.map { it.url },
+            itemReady = itemReady,
+            subtitlesAlreadyDropped = externalSubtitlesFailed,
+        )
     }
 
     private fun showNotice(text: String) {
@@ -300,6 +315,7 @@ class VideoPlayerViewModel @Inject constructor(
         loadedPath = null
         loadedSource = null
         externalSubtitlesFailed = false
+        subtitleNoticePending = false
         playlist = target
         recoveryCount = 0
         wasEnded = false

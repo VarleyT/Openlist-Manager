@@ -22,6 +22,20 @@ class PlaybackMemoryTest {
     }
 
     @Test
+    fun `unknown duration keeps existing record instead of clearing it`() {
+        // 媒体准备中退出：时长尚未知，不能清掉之前的进度
+        assertEquals(PositionAction.KEEP, PositionRules.decide(0, 0))
+        assertEquals(PositionAction.KEEP, PositionRules.decide(120_000, 0))
+    }
+
+    @Test
+    fun `known duration saves or clears by remember rules`() {
+        assertEquals(PositionAction.SAVE, PositionRules.decide(60_000, 600_000))
+        assertEquals(PositionAction.CLEAR, PositionRules.decide(0, 600_000))
+        assertEquals(PositionAction.CLEAR, PositionRules.decide(595_000, 600_000))
+    }
+
+    @Test
     fun `saved position round trips and rejects garbage`() {
         val saved = SavedPosition(61_000, 600_000, 1_800_000_000_000)
         assertEquals(saved, SavedPosition.decode(saved.encode()))
