@@ -21,9 +21,9 @@ on:
         required: true
         default: "ac3 eac3 dca truehd mlp alac"
       android_abi:
-        description: "原生代码 API 级别（不得超过 app minSdk）"
+        description: "FFmpeg 原生 API 级别，须等于 decoder_ffmpeg 模块 minSdk（1.11.1 为 23），否则 JNI 链接失败（如 iconv 未定义）"
         required: true
-        default: "30"
+        default: "23"
       ndk_version:
         description: "NDK 版本（须与该 Media3 版本 build-logic 固定的 ndkVersion 一致；1.11.1 为 28.2.13676358）"
         required: true
