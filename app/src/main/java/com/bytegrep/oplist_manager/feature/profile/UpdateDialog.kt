@@ -40,11 +40,11 @@ fun UpdateDialog(
                     color = OpenListTheme.colors.ink3,
                 )
                 Spacer(Modifier.height(Spacing.sm))
-                Text(
-                    release.notes.ifEmpty { "暂无更新说明" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = OpenListTheme.colors.ink2,
-                )
+                if (release.notes.isBlank()) {
+                    Text("暂无更新说明", style = MaterialTheme.typography.bodyMedium, color = OpenListTheme.colors.ink2)
+                } else {
+                    ReleaseNotesText(release.notes)
+                }
             }
         },
         confirmButton = { TextButton(onClick = onDownload) { Text("前往下载") } },
