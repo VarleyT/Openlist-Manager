@@ -24,6 +24,10 @@ on:
         description: "原生代码 API 级别（不得超过 app minSdk）"
         required: true
         default: "30"
+      ndk_version:
+        description: "NDK 版本（须与该 Media3 版本 build-logic 固定的 ndkVersion 一致；1.11.1 为 28.2.13676358）"
+        required: true
+        default: "28.2.13676358"
 
 permissions:
   contents: read
@@ -37,8 +41,9 @@ jobs:
       FFMPEG_BRANCH: ${{ inputs.ffmpeg_branch }}
       DECODERS: ${{ inputs.decoders }}
       ANDROID_ABI_LEVEL: ${{ inputs.android_abi }}
+      NDK_VERSION: ${{ inputs.ndk_version }}
     steps:
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -49,14 +54,15 @@ jobs:
           git clone --depth 1 --branch "$FFMPEG_BRANCH" https://github.com/FFmpeg/FFmpeg.git \
             media/libraries/decoder_ffmpeg/src/main/jni/ffmpeg
 
-      - name: 选择 NDK（r28+ 默认 16KB 页对齐）
+      - name: 准备 NDK（与 Media3 固定版本一致；r28+ 默认 16KB 页对齐）
         run: |
-          NDK_PATH="${ANDROID_NDK_LATEST_HOME}"
+          NDK_PATH="${ANDROID_HOME}/ndk/${NDK_VERSION}"
+          if [[ ! -d "$NDK_PATH" ]]; then
+            yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "ndk;${NDK_VERSION}" > /dev/null
+          fi
           test -d "$NDK_PATH"
           echo "NDK_PATH=$NDK_PATH" >> "$GITHUB_ENV"
           grep Pkg.Revision "$NDK_PATH/source.properties"
-          # 让 Gradle 编译 JNI 时使用同一个 NDK
-          echo 'android.ndkPath = System.getenv("NDK_PATH")' >> media/libraries/decoder_ffmpeg/build.gradle.kts
 
       - name: 编译 FFmpeg 静态库
         working-directory: media/libraries/decoder_ffmpeg/src/main/jni
