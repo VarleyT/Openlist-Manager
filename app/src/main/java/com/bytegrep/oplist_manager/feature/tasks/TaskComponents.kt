@@ -139,9 +139,15 @@ internal fun PartialErrorBanner(message: String) {
 }
 
 @Composable
-internal fun TaskCard(task: TypedTask, isDoneTab: Boolean, busy: Boolean, callbacks: TaskCallbacks) {
+internal fun TaskCard(
+    task: TypedTask,
+    isDoneTab: Boolean,
+    busy: Boolean,
+    callbacks: TaskCallbacks,
+    onClick: () -> Unit,
+) {
     val info = task.task
-    OlCard {
+    OlCard(onClick = onClick) {
         Column(Modifier.padding(Spacing.lg)) {
             TaskHeader(type = task.type, info = info)
             if (!isDoneTab && info.isRunning) {
@@ -164,7 +170,7 @@ internal fun TaskCard(task: TypedTask, isDoneTab: Boolean, busy: Boolean, callba
             Spacer(Modifier.height(Spacing.sm))
             TaskTimeLine(info)
             HorizontalDivider(Modifier.padding(vertical = Spacing.sm), color = OpenListTheme.colors.hairline)
-            TaskActions(task = task, isDoneTab = isDoneTab, busy = busy, callbacks = callbacks)
+            TaskActions(task = task, isDoneTab = isDoneTab, busy = busy, callbacks = callbacks, onDetail = onClick)
         }
     }
 }
@@ -185,7 +191,7 @@ private fun TaskHeader(type: TaskType, info: TaskInfo) {
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                info.name.ifBlank { info.id },
+                maskTaskName(info.name).ifBlank { info.id },
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = colors.ink,
@@ -233,9 +239,17 @@ private fun TaskTimeLine(info: TaskInfo) {
 }
 
 @Composable
-private fun TaskActions(task: TypedTask, isDoneTab: Boolean, busy: Boolean, callbacks: TaskCallbacks) {
+internal fun TaskActions(
+    task: TypedTask,
+    isDoneTab: Boolean,
+    busy: Boolean,
+    callbacks: TaskCallbacks,
+    /** 卡片上显示「详细」按钮；详情弹窗内传 null 不显示 */
+    onDetail: (() -> Unit)? = null,
+) {
     val danger = OpenListTheme.colors.danger
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        onDetail?.let { TextButton(onClick = it) { Text("详细") } }
         if (!isDoneTab) {
             TextButton(onClick = { callbacks.onCancel(task) }, enabled = !busy) { Text("取消", color = danger) }
         } else {
@@ -290,7 +304,7 @@ private fun MetaText(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = OpenListTheme.colors.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
-private fun typeIcon(type: TaskType): ImageVector = when (type) {
+internal fun typeIcon(type: TaskType): ImageVector = when (type) {
     TaskType.UPLOAD -> Icons.Outlined.CloudUpload
     TaskType.COPY -> Icons.Outlined.ContentCopy
     TaskType.MOVE -> Icons.AutoMirrored.Outlined.DriveFileMove
@@ -300,7 +314,7 @@ private fun typeIcon(type: TaskType): ImageVector = when (type) {
     TaskType.DECOMPRESS_UPLOAD -> Icons.Outlined.FolderZip
 }
 
-private fun pillKind(state: Int): PillKind = when (state) {
+internal fun pillKind(state: Int): PillKind = when (state) {
     TaskState.RUNNING, TaskState.BEFORE_RETRY -> PillKind.ACCENT
     TaskState.SUCCEEDED -> PillKind.SUCCESS
     TaskState.ERRORED, TaskState.FAILED, TaskState.FAILING -> PillKind.DANGER

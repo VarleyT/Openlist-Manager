@@ -52,6 +52,7 @@ internal data class TaskCallbacks(
     val onRetry: (TypedTask) -> Unit,
     val onDelete: (TypedTask) -> Unit,
     val onCancelLocal: (LocalUpload) -> Unit,
+    val onOpen: (TypedTask) -> Unit,
 )
 
 @Composable
@@ -63,8 +64,16 @@ fun TasksScreen(
     val snackbar = remember { SnackbarHostState() }
     var pendingBulk by rememberSaveable { mutableStateOf<TaskBulkAction?>(null) }
     var pendingDelete by remember { mutableStateOf<TypedTask?>(null) }
+    var detailKey by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(viewModel) { viewModel.events.collect { snackbar.showSnackbar(it) } }
+    val callbacks = TaskCallbacks(
+        onCancel = viewModel::cancel,
+        onRetry = viewModel::retry,
+        onDelete = { pendingDelete = it },
+        onCancelLocal = { viewModel.cancelLocalUpload(it.id) },
+        onOpen = { detailKey = it.key },
+    )
     LifecycleResumeEffect(viewModel) {
         viewModel.startPolling()
         onPauseOrDispose { viewModel.stopPolling() }
@@ -85,16 +94,27 @@ fun TasksScreen(
                 onRetryLoad = { viewModel.refresh() },
                 onSelectTab = viewModel::selectTab,
                 onSelectType = viewModel::selectType,
-                callbacks = TaskCallbacks(
-                    onCancel = viewModel::cancel,
-                    onRetry = viewModel::retry,
-                    onDelete = { pendingDelete = it },
-                    onCancelLocal = { viewModel.cancelLocalUpload(it.id) },
-                ),
+                callbacks = callbacks,
             )
         }
     }
 
+    // 按 key 从最新列表中查找，轮询刷新时详情同步更新；任务被删除或清除后自动关闭
+    detailKey?.let { key ->
+        val inDone = state.done.firstOrNull { it.key == key }
+        val task = inDone ?: state.undone.firstOrNull { it.key == key }
+        if (task == null) {
+            if (!state.isLoading && !state.isRefreshing) LaunchedEffect(key) { detailKey = null }
+        } else {
+            TaskDetailSheet(
+                task = task,
+                isDoneTab = inDone != null,
+                busy = state.isBusy,
+                callbacks = callbacks,
+                onDismiss = { detailKey = null },
+            )
+        }
+    }
     pendingBulk?.let { action ->
         ConfirmDialog(
             title = action.label,
@@ -108,7 +128,7 @@ fun TasksScreen(
     pendingDelete?.let { task ->
         ConfirmDialog(
             title = "删除任务",
-            message = "确定删除任务记录 “${task.task.name}” 吗？",
+            message = "确定删除任务记录 “${maskTaskName(task.task.name)}” 吗？",
             confirmLabel = "删除",
             destructive = true,
             onConfirm = { viewModel.delete(task) },
@@ -208,7 +228,7 @@ private fun LazyListScope.undoneItems(state: TasksUiState, callbacks: TaskCallba
         item(key = "empty_undone") { EmptyState(title = "暂无进行中的任务") }
     } else {
         items(state.visibleUndone, key = { it.key }) { task ->
-            TaskCard(task = task, isDoneTab = false, busy = state.isBusy, callbacks = callbacks)
+            TaskCard(task = task, isDoneTab = false, busy = state.isBusy, callbacks = callbacks, onClick = { callbacks.onOpen(task) })
         }
     }
 }
@@ -218,7 +238,7 @@ private fun LazyListScope.doneItems(state: TasksUiState, callbacks: TaskCallback
         item(key = "empty_done") { EmptyState(title = "暂无已完成的任务") }
     } else {
         items(state.visibleDone, key = { it.key }) { task ->
-            TaskCard(task = task, isDoneTab = true, busy = state.isBusy, callbacks = callbacks)
+            TaskCard(task = task, isDoneTab = true, busy = state.isBusy, callbacks = callbacks, onClick = { callbacks.onOpen(task) })
         }
     }
 }
