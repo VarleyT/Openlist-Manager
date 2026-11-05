@@ -51,8 +51,8 @@ jobs:
               print("覆盖率报告未生成")
               raise SystemExit
           root = ET.parse(path).getroot()
-          print("| 指标 | 覆盖率 |
-|---|---|")
+          print("| 指标 | 覆盖率 |")
+          print("|---|---|")
           for c in root.findall("counter"):
               missed, covered = int(c.get("missed")), int(c.get("covered"))
               print(f"| {c.get('type')} | {covered / (missed + covered) * 100:.1f}% |")
