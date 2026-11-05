@@ -75,7 +75,7 @@ jobs:
         working-directory: media
         run: ./gradlew --no-daemon :lib-decoder-ffmpeg:assembleRelease
 
-      - name: 校验产物（ABI、16KB 页对齐）
+      - name: 校验产物（64 位 ABI 须 16KB 页对齐）
         run: |
           AAR=media/libraries/decoder_ffmpeg/buildout/outputs/aar/lib-decoder-ffmpeg-release.aar
           test -f "$AAR" || AAR=$(find media -name 'lib-decoder-ffmpeg-release.aar' | head -1)
@@ -87,7 +87,10 @@ jobs:
           for so in check/jni/*/libffmpegJNI.so; do
             align=$("$READELF" -lW "$so" | awk '/LOAD/ {print $NF}' | sort -u | tr '\n' ' ')
             echo "$so $(du -h "$so" | cut -f1) align=$align"
-            echo "$align" | grep -q '0x4000' || status=1
+            # 16KB 页对齐只要求 64 位 ABI
+            case "$so" in
+              *arm64-v8a*|*x86_64*) echo "$align" | grep -q '0x4000' || status=1 ;;
+            esac
           done
           {
             echo "media3=$MEDIA3_VERSION"
