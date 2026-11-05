@@ -38,8 +38,33 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Unit tests & coverage
+        run: ./gradlew testDebugUnitTest koverXmlReportDebug koverHtmlReportDebug koverVerifyDebug --stacktrace
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import os, xml.etree.ElementTree as ET
+          path = "app/build/reports/kover/reportDebug.xml"
+          if not os.path.exists(path):
+              print("覆盖率报告未生成")
+              raise SystemExit
+          root = ET.parse(path).getroot()
+          print("| 指标 | 覆盖率 |
+|---|---|")
+          for c in root.findall("counter"):
+              missed, covered = int(c.get("missed")), int(c.get("covered"))
+              print(f"| {c.get('type')} | {covered / (missed + covered) * 100:.1f}% |")
+          PY
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: app/build/reports/kover/
+          retention-days: 14
 
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --stacktrace
