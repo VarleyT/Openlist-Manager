@@ -206,7 +206,7 @@ fun SectionHeader(
     }
 }
 
-/** 大标题顶栏（设计稿样式）：可选返回按钮 + 28sp 标题 + 右侧操作 */
+/** 大标题顶栏：可选返回按钮 + 28sp 标题 + 右侧操作 */
 @Composable
 fun LargeTitleBar(
     title: String,

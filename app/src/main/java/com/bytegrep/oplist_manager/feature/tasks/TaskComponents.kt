@@ -71,7 +71,7 @@ internal fun SummaryCard(summary: TaskSummary) {
     }
 }
 
-/** 胶囊分段切换（设计稿 _5 样式） */
+/** 胶囊分段切换 */
 @Composable
 internal fun TaskTabSwitcher(selected: TaskTab, undoneCount: Int, doneCount: Int, onSelect: (TaskTab) -> Unit) {
     val colors = OpenListTheme.colors

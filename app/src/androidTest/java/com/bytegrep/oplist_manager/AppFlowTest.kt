@@ -129,7 +129,7 @@ class AppFlowTest {
         waitForText(FakeOpenListServer.MOUNT_PATH)
 
         tab("我的").performClick()
-        waitForText("服务器连接")
+        waitForText("应用设置")
 
         tab("概览").performClick()
         waitForText("服务器概览")

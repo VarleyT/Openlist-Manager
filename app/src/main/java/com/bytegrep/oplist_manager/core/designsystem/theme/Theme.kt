@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bytegrep.oplist_manager.core.datastore.ThemeMode
 
-/** 语义颜色 token，来源 DESIGN.md 2.1 */
+/** 语义颜色 token：中性色为主，accent 仅用于主操作、选中与焦点 */
 @Immutable
 data class OlColors(
     val bg: Color,
@@ -94,7 +94,7 @@ private val DarkOlColors = OlColors(
 
 val LocalOlColors = staticCompositionLocalOf { LightOlColors }
 
-/** 间距与尺寸 token，来源 DESIGN.md 2.3 */
+/** 间距与尺寸 token */
 object Spacing {
     val xs = 4.dp
     val sm = 8.dp

@@ -13,21 +13,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ListAlt
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,9 +52,6 @@ import com.bytegrep.oplist_manager.data.session.Session
 @Composable
 fun ProfileScreen(
     onOpenServers: () -> Unit,
-    onOpenUsers: () -> Unit,
-    onOpenTasks: () -> Unit,
-    onOpenSystemSettings: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onOpenAbout: () -> Unit,
     onLoggedOut: () -> Unit,
@@ -73,35 +63,16 @@ fun ProfileScreen(
     var confirmLogout by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.loggedOut.collect { onLoggedOut() } }
 
+    // 只放 App 本身和当前账号相关的内容，服务器管理入口统一在「概览」
     Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
         LargeTitleBar(title = "我的")
         Column(Modifier.padding(horizontal = Spacing.page)) {
-            AccountCard(user, session, onOpenServers)
-            if (user?.isAdmin == true) {
-                SectionHeader("管理")
-                GroupCard(
-                    rows = listOf(
-                        { GroupRow("用户管理", subtitle = "账号、角色与权限", icon = Icons.Outlined.Group, onClick = onOpenUsers) },
-                        { GroupRow("任务中心", subtitle = "上传、复制、离线下载任务", icon = Icons.AutoMirrored.Outlined.ListAlt, onClick = onOpenTasks) },
-                        { GroupRow("系统设置", subtitle = "OpenList 站点与全局配置", icon = Icons.Outlined.AdminPanelSettings, onClick = onOpenSystemSettings) },
-                    ),
-                )
-            } else {
-                SectionHeader("任务")
-                GroupCard(rows = listOf({ GroupRow("任务中心", subtitle = "我的上传、复制任务", icon = Icons.AutoMirrored.Outlined.ListAlt, onClick = onOpenTasks) }))
-            }
-            SectionHeader("基础设置")
+            AccountCard(user, session)
+            SectionHeader("设置")
             GroupCard(
                 rows = listOf(
-                    { GroupRow("服务器连接", subtitle = "添加、切换或移除服务器", icon = Icons.Outlined.Dns, onClick = onOpenServers) },
-                    { GroupRow("外观与主题", icon = Icons.Outlined.Palette, iconTint = OpenListTheme.colors.ink2, iconBackground = OpenListTheme.colors.fill, trailingText = settings.themeMode.label, onClick = onOpenAppSettings) },
-                    { GroupRow("应用设置", subtitle = "文件布局、动态配色", icon = Icons.Outlined.Tune, onClick = onOpenAppSettings) },
-                ),
-            )
-            SectionHeader("系统与信息")
-            GroupCard(
-                rows = listOf(
-                    { GroupRow("服务器版本", icon = Icons.Outlined.Terminal, iconTint = OpenListTheme.colors.ink2, iconBackground = OpenListTheme.colors.fill, trailingText = "OpenList ${session?.server?.version.orEmpty()}", showChevron = false) },
+                    { GroupRow("应用设置", subtitle = "主题、文件布局、动态配色", icon = Icons.Outlined.Tune, trailingText = settings.themeMode.label, onClick = onOpenAppSettings) },
+                    { GroupRow("服务器连接", subtitle = "管理本机保存的服务器", icon = Icons.Outlined.Dns, onClick = onOpenServers) },
                     { GroupRow("关于 OpenList Manager", icon = Icons.Outlined.Info, iconTint = OpenListTheme.colors.ink2, iconBackground = OpenListTheme.colors.fill, trailingText = "v${BuildConfig.VERSION_NAME}", onClick = onOpenAbout) },
                 ),
             )
@@ -129,7 +100,7 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun AccountCard(user: UserDto?, session: Session?, onOpenServers: () -> Unit) {
+private fun AccountCard(user: UserDto?, session: Session?) {
     val colors = OpenListTheme.colors
     OlCard {
         Row(Modifier.padding(Spacing.lg), verticalAlignment = Alignment.CenterVertically) {
@@ -142,19 +113,18 @@ private fun AccountCard(user: UserDto?, session: Session?, onOpenServers: () -> 
                     TagChip(UserRole.label(user?.role ?: UserRole.GENERAL), color = colors.accent, background = colors.accentSoft)
                 }
                 Text(permissionSummary(user), style = MaterialTheme.typography.bodySmall, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                serverSummary(session)?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = colors.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
-        }
-        HorizontalDivider(Modifier.padding(horizontal = Spacing.lg), color = colors.hairline)
-        Row(Modifier.fillMaxWidth().padding(start = Spacing.lg, end = Spacing.xs, top = Spacing.sm, bottom = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-            IconBlock(Icons.Outlined.Dns, size = 36.dp, iconSize = 20.dp, tint = colors.accent, background = colors.accentSoft)
-            Spacer(Modifier.width(Spacing.md))
-            Column(Modifier.weight(1f)) {
-                Text(session?.server?.name.orEmpty(), style = MaterialTheme.typography.titleSmall, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(session?.server?.baseUrl?.trimEnd('/').orEmpty(), style = MaterialTheme.typography.bodySmall, color = colors.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            TextButton(onClick = onOpenServers) { Text("切换") }
         }
     }
+}
+
+/** 例如「OpenList · v4.1.10」，无服务器信息时返回 null */
+private fun serverSummary(session: Session?): String? {
+    val server = session?.server ?: return null
+    return listOf(server.name, server.version).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { null }
 }
 
 private fun permissionSummary(user: UserDto?): String {

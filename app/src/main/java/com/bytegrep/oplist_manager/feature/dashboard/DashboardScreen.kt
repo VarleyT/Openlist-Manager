@@ -17,13 +17,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ListAlt
+import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Group
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.SyncProblem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -57,12 +57,11 @@ import com.bytegrep.oplist_manager.core.designsystem.theme.Spacing
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    onOpenFiles: () -> Unit,
     onOpenStorage: () -> Unit,
     onOpenTasks: () -> Unit,
     onOpenUsers: () -> Unit,
+    onOpenSystemSettings: () -> Unit,
     onOpenServers: () -> Unit,
-    onOpenAppSettings: () -> Unit,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -74,7 +73,7 @@ fun DashboardScreen(
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Spacing.page),
         ) {
-            AppBrandBar(onOpenAppSettings)
+            AppBrandBar(onOpenServers)
             Row(verticalAlignment = Alignment.Bottom) {
                 Text("服务器概览", style = MaterialTheme.typography.headlineMedium, color = OpenListTheme.colors.ink, modifier = Modifier.weight(1f))
                 Text(
@@ -86,7 +85,7 @@ fun DashboardScreen(
             Spacer(Modifier.height(Spacing.lg))
             ServerCard(state, onOpenServers)
             SectionHeader("快捷入口", large = true)
-            QuickEntries(state.isAdmin, onOpenFiles, onOpenStorage, onOpenTasks, onOpenUsers)
+            QuickEntries(state.isAdmin, onOpenTasks, onOpenUsers, onOpenSystemSettings, onOpenServers)
             SectionHeader("异常与提醒", large = true)
             AlertsCard(state, onOpenStorage, onOpenTasks)
             Spacer(Modifier.height(Spacing.xxl))
@@ -95,13 +94,13 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun AppBrandBar(onOpenSettings: () -> Unit) {
+private fun AppBrandBar(onSwitchServer: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(vertical = Spacing.sm), verticalAlignment = Alignment.CenterVertically) {
         AppLogo(size = 28.dp)
         Spacer(Modifier.width(Spacing.sm))
         Text("OpenList Manager", style = MaterialTheme.typography.titleMedium, color = OpenListTheme.colors.ink, modifier = Modifier.weight(1f))
-        IconButton(onClick = onOpenSettings) {
-            Icon(Icons.Outlined.Settings, contentDescription = "应用设置", tint = OpenListTheme.colors.ink)
+        IconButton(onClick = onSwitchServer) {
+            Icon(Icons.Outlined.SwapHoriz, contentDescription = "切换服务器", tint = OpenListTheme.colors.ink)
         }
     }
 }
@@ -142,22 +141,25 @@ private fun ServerCard(state: DashboardUiState, onOpenServers: () -> Unit) {
     }
 }
 
+/** 只放「不是 Tab、但常用」的功能；文件、存储已是底部 Tab，不在这里重复 */
 @Composable
 private fun QuickEntries(
     isAdmin: Boolean,
-    onOpenFiles: () -> Unit,
-    onOpenStorage: () -> Unit,
     onOpenTasks: () -> Unit,
     onOpenUsers: () -> Unit,
+    onOpenSystemSettings: () -> Unit,
+    onOpenServers: () -> Unit,
 ) {
+    val adminOnly = "需要管理员权限"
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            QuickEntry(Icons.Outlined.Folder, "文件管理", "浏览、上传与管理", onOpenFiles, Modifier.weight(1f))
-            QuickEntry(Icons.Outlined.Storage, "挂载管理", if (isAdmin) "存储挂载与配置" else "需要管理员权限", onOpenStorage, Modifier.weight(1f))
+            QuickEntry(Icons.AutoMirrored.Outlined.ListAlt, "任务队列", "上传、复制与下载", onOpenTasks, Modifier.weight(1f))
+            QuickEntry(Icons.Outlined.Group, "用户管理", if (isAdmin) "用户与权限设置" else adminOnly, onOpenUsers, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-            QuickEntry(Icons.AutoMirrored.Outlined.ListAlt, "任务队列", "上传、复制与下载", onOpenTasks, Modifier.weight(1f))
-            QuickEntry(Icons.Outlined.Group, "用户管理", if (isAdmin) "用户与权限设置" else "需要管理员权限", onOpenUsers, Modifier.weight(1f))
+            QuickEntry(Icons.Outlined.AdminPanelSettings, "系统设置", if (isAdmin) "站点与全局配置" else adminOnly, onOpenSystemSettings, Modifier.weight(1f))
+            // 离线下载实现前暂放「服务器连接」
+            QuickEntry(Icons.Outlined.Dns, "服务器连接", "添加、切换服务器", onOpenServers, Modifier.weight(1f))
         }
     }
 }

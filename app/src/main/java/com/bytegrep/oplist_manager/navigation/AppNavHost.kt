@@ -3,6 +3,8 @@ package com.bytegrep.oplist_manager.navigation
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -24,6 +26,8 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -82,24 +86,23 @@ fun AppNavHost(
             enterTransition = { fadeIn(tween(FADE_MS)) },
             exitTransition = { fadeOut(tween(FADE_MS)) },
         ) {
-            composable<LoginRoute> { entry ->
+            screen<LoginRoute> { entry ->
                 val route = entry.toRoute<LoginRoute>()
                 LoginScreen(
                     onLoggedIn = { navController.goHome() },
                     onBack = if (route.allowBack) ({ navController.popBackStack() }) else null,
                 )
             }
-            composable<DashboardRoute> {
+            screen<DashboardRoute> {
                 DashboardScreen(
-                    onOpenFiles = { navController.switchTab(TopLevelTab.FILES) },
                     onOpenStorage = { navController.switchTab(TopLevelTab.STORAGE) },
                     onOpenTasks = { navController.navigate(TasksRoute) },
                     onOpenUsers = { navController.navigate(UsersRoute) },
+                    onOpenSystemSettings = { navController.navigate(SystemSettingsRoute) },
                     onOpenServers = { navController.navigate(ServersRoute) },
-                    onOpenAppSettings = { navController.navigate(AppSettingsRoute) },
                 )
             }
-            composable<FilesRoute> {
+            screen<FilesRoute> {
                 FilesScreen(
                     onOpenPreview = { path ->
                         if (isOnlinePlayableVideo(path)) {
@@ -111,26 +114,23 @@ fun AppNavHost(
                     onOpenTasks = { navController.navigate(TasksRoute) },
                 )
             }
-            composable<FilePreviewRoute> { FilePreviewScreen(onBack = { navController.popBackStack() }) }
-            composable<StorageRoute> {
+            screen<FilePreviewRoute> { FilePreviewScreen(onBack = { navController.popBackStack() }) }
+            screen<StorageRoute> {
                 StorageScreen(
                     onAdd = { navController.navigate(StorageEditRoute()) },
                     onEdit = { id -> navController.navigate(StorageEditRoute(id)) },
                 )
             }
-            composable<StorageEditRoute> { StorageEditScreen(onBack = { navController.popBackStack() }) }
-            composable<ProfileRoute> {
+            screen<StorageEditRoute> { StorageEditScreen(onBack = { navController.popBackStack() }) }
+            screen<ProfileRoute> {
                 ProfileScreen(
                     onOpenServers = { navController.navigate(ServersRoute) },
-                    onOpenUsers = { navController.navigate(UsersRoute) },
-                    onOpenTasks = { navController.navigate(TasksRoute) },
-                    onOpenSystemSettings = { navController.navigate(SystemSettingsRoute) },
                     onOpenAppSettings = { navController.navigate(AppSettingsRoute) },
                     onOpenAbout = { navController.navigate(AboutRoute) },
                     onLoggedOut = { navController.goToLogin() },
                 )
             }
-            composable<ServersRoute> {
+            screen<ServersRoute> {
                 ServersScreen(
                     onBack = { navController.popBackStack() },
                     onAddServer = { navController.navigate(LoginRoute(allowBack = true)) },
@@ -139,18 +139,18 @@ fun AppNavHost(
                     onActiveRemoved = { navController.goToLogin() },
                 )
             }
-            composable<UsersRoute> {
+            screen<UsersRoute> {
                 UsersScreen(
                     onBack = { navController.popBackStack() },
                     onEdit = { id -> navController.navigate(UserEditRoute(id)) },
                     onAdd = { navController.navigate(UserEditRoute()) },
                 )
             }
-            composable<UserEditRoute> { UserEditScreen(onBack = { navController.popBackStack() }) }
-            composable<TasksRoute> { TasksScreen(onBack = { navController.popBackStack() }) }
-            composable<SystemSettingsRoute> { SystemSettingsScreen(onBack = { navController.popBackStack() }) }
-            composable<AppSettingsRoute> { AppSettingsScreen(onBack = { navController.popBackStack() }) }
-            composable<AboutRoute> { AboutScreen(onBack = { navController.popBackStack() }) }
+            screen<UserEditRoute> { UserEditScreen(onBack = { navController.popBackStack() }) }
+            screen<TasksRoute> { TasksScreen(onBack = { navController.popBackStack() }) }
+            screen<SystemSettingsRoute> { SystemSettingsScreen(onBack = { navController.popBackStack() }) }
+            screen<AppSettingsRoute> { AppSettingsScreen(onBack = { navController.popBackStack() }) }
+            screen<AboutRoute> { AboutScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }
@@ -199,5 +199,19 @@ private fun NavHostController.goToLogin() {
     navigate(LoginRoute()) {
         popUpTo(0) { inclusive = true }
         launchSingleTop = true
+    }
+}
+
+/**
+ * 注册页面并铺不透明背景。
+ *
+ * 预测性返回时 Navigation 会把离开的页面缩小（scaleOut 0.7）且不淡出；
+ * 页面根布局若无背景，缩小后只剩卡片浮在上一页上形成重影。
+ */
+private inline fun <reified T : Any> NavGraphBuilder.screen(
+    noinline content: @Composable (NavBackStackEntry) -> Unit,
+) {
+    composable<T> { entry ->
+        Box(Modifier.fillMaxSize().background(OpenListTheme.colors.bg)) { content(entry) }
     }
 }
