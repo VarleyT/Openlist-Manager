@@ -1,231 +1,253 @@
-<div align="center">
+<p align="center">
+  <img src="app/src/main/res/drawable-nodpi/ic_logo.png" alt="OpenList Manager Logo" width="112" />
+</p>
 
-<img src="app/src/main/res/drawable-nodpi/ic_logo.png" alt="OpenList Manager" width="120" />
+<h1 align="center">OpenList Manager</h1>
 
-# OpenList Manager
+<p align="center"><strong>随时随地管理你的 OpenList 服务器。</strong></p>
 
-**OpenList 的 Android 远程管理客户端**
+<p align="center">
+  一款基于 Kotlin 与 Jetpack Compose 开发的原生 Android 客户端，支持文件管理、在线视频播放、存储挂载维护及服务器管理，无需打开网页后台。
+</p>
 
-通过 OpenList 官方 REST API，在手机上管理文件、存储挂载、用户与任务。
+<p align="center">
+  <a href="https://developer.android.com/about/versions/11"><img alt="Android 11+" src="https://img.shields.io/badge/Android-11%2B-3DDC84?logo=android&amp;logoColor=white" /></a>
+  <a href="https://github.com/VarleyT/Openlist-Manager/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/VarleyT/Openlist-Manager/ci.yml?branch=main&amp;label=CI" /></a>
+  <a href="https://github.com/VarleyT/Openlist-Manager/releases"><img alt="Release" src="https://img.shields.io/github/v/release/VarleyT/Openlist-Manager" /></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue.svg" /></a>
+</p>
 
-[![CI](https://img.shields.io/github/actions/workflow/status/VarleyT/Openlist-Manager/ci.yml?branch=main&label=CI&logo=githubactions&logoColor=white)](https://github.com/VarleyT/Openlist-Manager/actions/workflows/ci.yml)
-[![Downloads](https://img.shields.io/github/downloads/VarleyT/Openlist-Manager/total?color=brightgreen)](https://github.com/VarleyT/Openlist-Manager/releases)
-[![License](https://img.shields.io/github/license/VarleyT/Openlist-Manager?color=blue)](LICENSE)
-[![Repo Size](https://img.shields.io/github/repo-size/VarleyT/Openlist-Manager)](https://github.com/VarleyT/Openlist-Manager)
-[![Code Size](https://img.shields.io/github/languages/code-size/VarleyT/Openlist-Manager)](https://github.com/VarleyT/Openlist-Manager)
-[![Top Language](https://img.shields.io/github/languages/top/VarleyT/Openlist-Manager)](https://github.com/VarleyT/Openlist-Manager)
-[![Last Commit](https://img.shields.io/github/last-commit/VarleyT/Openlist-Manager)](https://github.com/VarleyT/Openlist-Manager/commits/main)
-[![Release](https://img.shields.io/github/v/release/VarleyT/Openlist-Manager?include_prereleases)](https://github.com/VarleyT/Openlist-Manager/releases)
-[![Stars](https://img.shields.io/github/stars/VarleyT/Openlist-Manager?style=flat)](https://github.com/VarleyT/Openlist-Manager/stargazers)
+<p align="center">
+  <a href="https://github.com/VarleyT/Openlist-Manager/releases/latest">下载安装</a> ·
+  <a href="#主要功能">功能介绍</a> ·
+  <a href="#界面预览">界面预览</a> ·
+  <a href="#从源码构建">源码构建</a> ·
+  <a href="https://github.com/VarleyT/Openlist-Manager/issues">反馈问题</a>
+</p>
 
-[![Android](https://img.shields.io/badge/Android-11%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/compose)
-[![OpenList](https://img.shields.io/badge/OpenList-v4%20API-0A7CFF)](https://github.com/OpenListTeam/OpenList)
+> [!NOTE]
+> 本项目是 [OpenList](https://github.com/OpenListTeam/OpenList) 的第三方 Android 客户端，与 OpenList 官方无关联。它**连接并管理已有的 OpenList 服务端**，不会在手机上部署 OpenList 服务。
 
-[功能特性](#-功能特性) · [界面预览](#-界面预览) · [快速开始](#-快速开始) · [从源码构建](#-从源码构建) · [安全说明](#-安全说明) · [许可证](#-许可证)
+## 快速开始
 
-</div>
+**使用前准备**
 
----
+- 一台运行 **OpenList v4** 且手机能够访问的服务器；
+- **Android 11（API 30）或更高版本**的手机；
+- 一个可登录 OpenList 的账户。存储挂载、用户和系统配置等管理操作需要相应管理员权限。
 
-## 📖 简介
+**开始使用**
 
-[OpenList](https://github.com/OpenListTeam/OpenList) 是一款支持多种网盘的文件列表程序。**OpenList Manager** 是为它打造的原生 Android 管理端：无需打开网页后台，即可在手机上完成日常的文件管理、存储挂载维护、用户权限配置与任务查看。
+1. 前往 [Releases](https://github.com/VarleyT/Openlist-Manager/releases/latest) 下载 APK，或从 [全部版本](https://github.com/VarleyT/Openlist-Manager/releases) 选择所需版本。
+2. 在手机上安装并启动 OpenList Manager。
+3. 填写 OpenList 服务器地址、用户名和密码；如果账户启用了两步验证（2FA），再输入验证码。
+4. 登录后即可浏览文件，在「我的」页面管理服务器连接、应用设置及其他管理功能。
 
-- 原生 Jetpack Compose 界面，深浅色双主题，支持 Material You 动态取色
-- 已适配 OpenList v4 API
-- 多服务器管理，认证信息加密保存、互相隔离
+服务器地址示例：
 
-## ✨ 功能特性
+```text
+https://nas.example.com
+http://192.168.1.10:5244
+```
 
-| 模块 | 能力 |
-|---|---|
-| 📊 **服务器概览** | 在线状态、存储挂载统计（总数 / 正常 / 异常）、快捷入口、异常挂载提醒 |
-| 📁 **文件管理** | 浏览目录、面包屑导航、列表 / 网格布局切换、多字段排序、搜索（需服务器开启索引）、上传、新建文件夹、重命名、复制、移动、删除 |
-| 👀 **文件预览** | 图片双指缩放预览、文本 / 代码预览；其他格式可调用外部应用打开，支持下载与复制直链 |
-| 🗄️ **挂载管理** | 存储列表与状态、启用 / 禁用、单个或全部重新加载、按驱动动态生成配置表单（字段名与说明已中文化） |
-| 📋 **任务中心** | 上传、复制、移动、离线下载等任务，按状态与类型筛选 |
-| 👥 **用户管理** | 新建 / 编辑 / 禁用 / 删除用户，角色、基础路径与细粒度权限设置，关闭两步验证 |
-| ⚙️ **系统设置** | 按分组查看与修改 OpenList 站点全局配置 |
-| 🔐 **登录与服务器** | 用户名密码登录，支持 2FA 验证码；多服务器添加、切换与移除 |
-| 🎨 **外观** | 浅色 / 深色 / 跟随系统；Android 12+ 支持跟随壁纸取色 |
+优先使用 **HTTPS**。如需通过 HTTP 连接局域网内的 OpenList，请确保网络可信；HTTP 不会加密账号密码及传输内容。
 
-## 📸 界面预览
+## 界面预览
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/nav.gif" width="260" alt="服务器概览与导航" /><br/><b>服务器概览与导航</b></td>
-    <td align="center"><img src="docs/screenshots/files.gif" width="260" alt="文件管理" /><br/><b>文件管理</b><br/><sub>目录浏览 · 网格 / 列表 · 排序 · 新建</sub></td>
+    <td align="center"><img src="docs/screenshots/nav.gif" alt="服务器概览和导航" width="250" /><br /><strong>服务器概览与导航</strong></td>
+    <td align="center"><img src="docs/screenshots/files.gif" alt="文件列表与文件操作" width="250" /><br /><strong>文件管理</strong></td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/screenshots/storage.gif" width="260" alt="挂载管理" /><br/><b>挂载管理</b><br/><sub>状态总览 · 异常重载 · 动态配置表单</sub></td>
-    <td align="center"><img src="docs/screenshots/theme.gif" width="260" alt="深色主题" /><br/><b>深色主题</b><br/><sub>浅色 / 深色 / 跟随系统</sub></td>
+    <td align="center"><img src="docs/screenshots/storage.gif" alt="存储挂载管理" width="250" /><br /><strong>存储挂载管理</strong></td>
+    <td align="center"><img src="docs/screenshots/theme.gif" alt="深色主题" width="250" /><br /><strong>深色主题</strong></td>
   </tr>
 </table>
 
-## 🚀 快速开始
+> 以上截图展示部分界面；在线视频播放器等新增功能不一定包含在现有动图中。
 
-### 环境要求
+## 主要功能
 
-- Android **11（API 30）** 及以上设备
-- 一台可访问的 **OpenList v4** 服务器
-- 具备管理员权限的账号（挂载管理、用户管理、系统设置等功能需要管理员权限）
+| 模块 | 功能 |
+| --- | --- |
+| **服务器概览** | 查看服务器状态、存储挂载统计、异常挂载提醒和常用操作入口。 |
+| **文件管理** | 目录浏览、面包屑导航、列表/网格视图、排序、搜索、上传、下载、新建文件夹、重命名、复制、移动、删除。 |
+| **文件预览** | 图片缩放、文本/代码预览、复制直链，以及调用外部应用打开其他类型文件。 |
+| **在线视频播放** | 内置播放器直接播放支持的在线视频，提供倍速、手势、播放记忆、连续播放和字幕/音轨切换。 |
+| **存储挂载** | 查看挂载状态、启停与重载存储；依据驱动字段生成编辑表单，提供部分字段的中文说明。 |
+| **任务中心** | 查看上传、复制、移动及离线下载等任务的状态和进度。 |
+| **用户管理** | 创建、编辑、禁用、删除用户，配置角色、基础路径和权限。 |
+| **系统设置** | 查看并修改 OpenList 的站点配置。 |
+| **多服务器** | 保存、切换和移除多个服务器连接，凭据按服务器隔离。 |
+| **应用体验** | 浅色/深色/跟随系统主题、Android 12+ 动态配色、版本更新检查。 |
 
-### 安装
+### 在线视频播放
 
-1. 前往 [Releases](https://github.com/VarleyT/Openlist-Manager/releases) 下载最新 APK；
-2. 在手机上安装（如提示“未知来源”，请在系统设置中允许）。
+内置播放器基于 **AndroidX Media3 / ExoPlayer**。在文件列表点击支持的格式即可尝试直接播放，无需先完整下载。
 
-> 也可以参考下文 [从源码构建](#-从源码构建) 自行编译。
+- **支持的文件扩展名**：`mp4`、`m4v`、`mkv`、`webm`、`mov`、`ts`、`3gp`、`m3u8`（HLS）、`mpd`（DASH）。对于 `avi`、`rmvb`、`flv` 等文件，可在预览页选择外部应用打开。
+- **播放控制**：播放/暂停、进度拖动、快进/快退、倍速播放、横竖屏切换、屏幕锁定，以及手势调节进度、亮度和音量。
+- **连续播放与进度记忆**：支持同一文件夹内的视频切换和播完自动播放下一条，并记住上次播放位置。
+- **音轨与字幕**：支持选择内嵌音轨/字幕，以及自动查找同文件夹的 `srt`、`ass`、`ssa`、`vtt` 外挂字幕。
+- **音频解码兜底**：优先采用设备系统解码器；设备不支持时，尝试使用内置 **FFmpeg** 扩展软件解码 DTS（包括 DTS-HD 核心音轨）、TrueHD、AC3、E-AC3、ALAC 等音频。
+- **网络恢复**：对部分播放链接过期或网络中断的情况，尝试重新获取直链并恢复播放进度。
 
-### 连接服务器
+> [!IMPORTANT]
+> 文件扩展名在支持列表中，**不代表所有视频编码、字幕和网络环境都能播放**。视频解码主要依赖设备能力；某些 OpenList 存储还需要正确配置直链权限或「Web 代理」。FFmpeg 扩展主要用于补充**音频解码**，并非通用的全格式视频解码器。
 
-1. 打开应用，在登录页填写 **服务器地址**，例如 `https://nas.example.com` 或 `http://192.168.1.10:5244`；
-2. 输入 **用户名** 与 **密码**；若账号开启了两步验证，再填写 **2FA 验证码**；
-3. 点击登录，进入「服务器概览」。
+更多版本变更请查看 [Release Notes](docs/release-notes/)。
 
-之后可在「我的 → 服务器连接」中添加更多服务器并随时切换。
+## 从源码构建
 
-### 使用提示
+### 构建要求
 
-- **搜索无结果 / 不可用**：需先在 OpenList 网页后台「索引」中开启并构建索引。
-- **挂载显示异常**：在「挂载管理」中查看错误信息，修正配置后点击「重新加载」。
-- **切换文件布局 / 动态配色**：「我的 → 应用设置」。
+| 项目 | 当前仓库配置 |
+| --- | --- |
+| Android Studio | 支持当前 Android Gradle Plugin 的版本 |
+| Gradle Daemon JDK | **25**（见 `gradle/gradle-daemon-jvm.properties`） |
+| Java 源码兼容级别 | 17（**不同于**运行 Gradle 的 JDK 版本） |
+| Gradle | **9.6.0**（通过 Gradle Wrapper） |
+| Android Gradle Plugin | **9.5.0** |
+| Kotlin | **2.3.21** |
+| Android SDK | `compileSdk 37`，`targetSdk 36`，`minSdk 30` |
+| Media3 | **1.11.1** |
 
-## 🛠️ 从源码构建
+构建机器还需要安装相应的 Android SDK/Build Tools，并确保 Gradle 可以下载项目依赖。无需手动安装全局 Gradle。
 
-### 环境
-
-| 工具 | 版本 |
-|---|---|
-| JDK | 17+ |
-| Android Gradle Plugin | 9.5 |
-| Gradle | 9.6（使用仓库自带 Wrapper） |
-| Kotlin | 2.3 |
-| compileSdk / targetSdk / minSdk | 37 / 36 / 30 |
-
-推荐使用最新版 Android Studio 打开项目。
-
-### 构建命令
+### 构建与测试
 
 ```bash
 git clone https://github.com/VarleyT/Openlist-Manager.git
 cd Openlist-Manager
 
-# Debug 包
+# 构建 Debug APK
 ./gradlew assembleDebug
 
-# 单元测试
+# 运行单元测试
 ./gradlew testDebugUnitTest
 
-# Release 包（需配置签名，见下文）
+# 构建 Release APK（签名可选，见下文）
 ./gradlew assembleRelease
 ```
 
-产物位于 `app/build/outputs/apk/`。
+Windows 命令提示符或 PowerShell 中，将 `./gradlew` 替换为 `./gradlew.bat`。
+
+输出位置：
+
+- Debug APK：`app/build/outputs/apk/debug/`
+- Release APK：`app/build/outputs/apk/release/`
 
 ### Release 签名（可选）
 
-在项目根目录创建 `keystore/` 目录（已被 `.gitignore` 忽略），放入签名文件并新建 `keystore/keystore.properties`：
+项目会读取 `keystore/keystore.properties`。如需在本地构建**已签名**的 Release APK，请在仓库根目录创建 `keystore/`，放入私有签名文件 `release.jks`，并创建以下配置：
 
 ```properties
 storeFile=release.jks
-storePassword=your_store_password
-keyAlias=your_key_alias
-keyPassword=your_key_password
+storePassword=YOUR_STORE_PASSWORD
+keyAlias=YOUR_KEY_ALIAS
+keyPassword=YOUR_KEY_PASSWORD
 ```
 
-未配置时 Release 包不会签名，不影响 Debug 构建。
+`keystore/` 已列入 `.gitignore`；**不要将 keystore 或真实密码提交到仓库**。未提供本地签名配置时，`assembleRelease` 仍可构建，但产物不会自动签名，不能按已签名安装包使用。
 
-### 持续集成与发版
+### CI、发布与 FFmpeg 扩展
 
-| 工作流 | 触发 | 内容 |
-|---|---|---|
-| [CI](.github/workflows/ci.yml) | 推送到 `main` / Pull Request | 单元测试 + 构建 Debug APK（作为 Artifact 上传） |
-| [Release](.github/workflows/release.yml) | 推送 `v*` 标签 | 单元测试 + 构建签名 Release APK，自动创建 GitHub Release 并附带 APK 与 SHA-256 |
+- [CI](.github/workflows/ci.yml)：推送到 `main`、提交 PR 或手动触发时执行单元测试和 Debug 构建；纯文档变更推送到 `main` 时通常不会触发。
+- [Release](.github/workflows/release.yml)：推送 `v*` 标签时构建签名 APK，发布 GitHub Release，并附带 SHA-256 校验文件。该工作流需要仓库 Actions Secrets 中配置 `KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_ALIAS` 和 `KEY_PASSWORD`，且必须有对应的 `docs/release-notes/<tag>.md`。
+- [Build FFmpeg decoder](.github/workflows/build-ffmpeg-decoder.yml)：手动构建 Media3 官方 FFmpeg 音频扩展。仓库已经包含 `app/libs/lib-decoder-ffmpeg-release.aar`；如果升级 Media3，应使用**与项目一致**的 Media3 版本重新构建并替换 AAR。
 
-发布新版本：
+## 技术架构
 
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-版本名取自标签（去掉 `v` 前缀），版本号取自工作流运行序号；带 `-` 的标签（如 `v1.1.0-beta.1`）发布为预发布版本。
-
-Release 工作流需要在仓库 **Settings → Secrets and variables → Actions** 中配置：
-
-| Secret | 说明 |
-|---|---|
-| `KEYSTORE_BASE64` | 签名文件的 Base64 编码（`base64 -w0 release.jks`） |
-| `KEYSTORE_PASSWORD` | 密钥库密码 |
-| `KEY_ALIAS` | 密钥别名 |
-| `KEY_PASSWORD` | 密钥密码 |
-
-## 🧱 技术栈
-
-- **UI**：Jetpack Compose · Material 3 · Navigation Compose · SplashScreen
-- **架构**：MVVM · 单 Activity · 按功能分包（`feature/*`）+ `core` / `data` 分层
-- **依赖注入**：Hilt
-- **网络**：Retrofit · OkHttp · Kotlinx Serialization
-- **异步**：Kotlin Coroutines / Flow · WorkManager
-- **存储**：DataStore Preferences · Android Keystore
-- **图片**：Coil 3
-- **测试**：JUnit · MockK · Turbine · MockWebServer
+- **界面**：Kotlin、Jetpack Compose、Material 3、Navigation Compose。
+- **架构**：单 Activity、MVVM、按功能分包，Hilt 依赖注入，Coroutines / Flow 状态管理。
+- **网络**：Retrofit、OkHttp、Kotlinx Serialization，通过 OpenList REST API 与服务器通信。
+- **数据与任务**：DataStore、Android Keystore、WorkManager；Coil 用于图片加载。
+- **播放器**：Media3 ExoPlayer、HLS/DASH、FFmpeg 音频解码扩展。
+- **测试**：JUnit、MockK、Turbine、MockWebServer。
 
 <details>
-<summary>项目结构</summary>
+<summary>查看主要源码目录</summary>
 
 ```text
 app/src/main/java/com/bytegrep/oplist_manager/
 ├── core/
-│   ├── common/          # 通用工具
-│   ├── datastore/       # 服务器配置与偏好存储
-│   ├── designsystem/    # 主题与通用组件
-│   ├── network/         # Retrofit / OkHttp 配置与 API 定义
-│   └── security/        # Keystore 加解密
+│   ├── datastore/      # 服务器与应用偏好
+│   ├── designsystem/   # UI 组件与主题
+│   ├── network/        # API 客户端与认证
+│   └── security/       # Keystore 加密
 ├── data/
-│   ├── model/           # 数据模型
-│   ├── repository/      # 仓库层
-│   └── session/         # 会话管理
-├── di/                  # Hilt 模块
+│   ├── model/          # OpenList API 数据模型
+│   ├── player/         # 播放源、播放列表与进度
+│   ├── repository/     # 数据访问
+│   ├── session/        # 会话管理
+│   └── update/         # 版本更新
 ├── feature/
-│   ├── dashboard/       # 服务器概览
-│   ├── files/           # 文件管理与预览
-│   ├── login/           # 登录
-│   ├── profile/         # 我的 / 应用设置 / 关于
-│   ├── servers/         # 服务器连接
-│   ├── settings/        # OpenList 系统设置
-│   ├── storage/         # 挂载管理与动态表单
-│   ├── tasks/           # 任务中心
-│   └── users/           # 用户管理
-└── navigation/          # 导航图与底部导航
+│   ├── dashboard/      # 服务器概览
+│   ├── files/          # 文件浏览、传输与预览
+│   ├── login/          # 登录与二步验证
+│   ├── player/         # 在线视频播放器
+│   ├── profile/        # 我的、应用设置与关于
+│   ├── servers/        # 多服务器管理
+│   ├── settings/       # OpenList 系统设置
+│   ├── storage/        # 存储挂载管理
+│   ├── tasks/          # 任务中心
+│   └── users/          # 用户管理
+└── navigation/         # 路由与底部导航
 ```
 
 </details>
 
-## 🔒 安全说明
+## 安全与隐私
 
-- Token 与密码使用 **Android Keystore（AES-256-GCM）** 加密保存，不参与云备份；
-- 不同服务器之间的认证信息相互隔离，移除服务器时本机凭据一并删除；
-- 仅信任系统 CA 证书，**不会忽略 TLS 证书错误**；
-- 为兼容局域网部署允许 `http://` 访问，但 HTTP 为明文传输，登录页会给出风险提示，建议仅在可信局域网使用，公网访问请使用 HTTPS。
+- 服务器 Token 与保存的密码使用 **Android Keystore 中的 AES-256-GCM 密钥**加密；服务器凭据数据排除在系统备份之外。
+- 网络请求按服务器来源区分认证信息，不会将 OpenList Token 无条件发送给第三方播放直链。
+- HTTPS 使用系统信任的 CA 证书，不主动忽略证书验证错误。
+- 为兼容局域网 OpenList，允许使用 `http://`，但**HTTP 流量不加密**；公网访问建议配置 HTTPS。
+- 检查应用更新时访问 GitHub Release，不会将 OpenList 登录凭据作为更新请求参数。
 
-## 🤝 贡献
+## 常见问题
 
-欢迎提交 Issue 与 Pull Request：
+<details>
+<summary>文件搜索没有结果？</summary>
 
-1. Fork 本仓库并创建分支：`git checkout -b feat/your-feature`
-2. 提交修改：`git commit -m "feat: 描述你的改动"`（遵循 [Conventional Commits](https://www.conventionalcommits.org/zh-hans/)）
-3. 推送并发起 Pull Request
+文件搜索依赖 OpenList 服务端索引。请先在 OpenList 管理后台开启、构建并检查索引。
 
-## 🙏 致谢
+</details>
 
-- [OpenList](https://github.com/OpenListTeam/OpenList) —— 本项目所管理的服务端
+<details>
+<summary>视频无法播放或只有画面没有声音？</summary>
 
-## 📄 许可证
+请确认文件格式和视频编码受设备支持，并尝试切换音轨。内置 FFmpeg 扩展可以为部分缺失的音频解码器提供兜底，但不能解决所有视频解码问题。遇到 `403` 等访问问题，请检查 OpenList 存储直链权限或「Web 代理」设置；必要时改用外部播放器。
 
-本项目基于 [MIT License](LICENSE) 开源。
+</details>
 
-> 本项目为第三方客户端，与 OpenList 官方无关联。
+<details>
+<summary>管理操作不可用？</summary>
+
+挂载、用户及系统配置属于 OpenList 管理功能，需使用具有相应权限的账户。普通账户仍可根据服务端授权使用文件功能。
+
+</details>
+
+<details>
+<summary>如何检查更新？</summary>
+
+可在「我的 → 关于」中手动检查更新；也可以在「我的 → 应用设置」中控制启动时检查更新。新版本下载页面由 GitHub 提供。
+
+</details>
+
+## 参与贡献
+
+欢迎通过 [Issues](https://github.com/VarleyT/Openlist-Manager/issues) 反馈 Bug、提出建议，或提交 Pull Request。提交代码前请先运行：
+
+```bash
+./gradlew testDebugUnitTest
+```
+
+建议在 PR 中说明改动原因、验证方式；如果新增功能或修改交互，请同步更新 README 或相应文档。
+
+## 许可证与致谢
+
+本项目主体采用 [MIT License](LICENSE) 开源。内置的 **FFmpeg 音频解码组件**使用 FFmpeg 的 LGPL 授权，与应用主体的 MIT 许可相区分；分发和再构建时请遵循对应第三方组件的许可要求。
+
+感谢 [OpenListTeam/OpenList](https://github.com/OpenListTeam/OpenList)、[AndroidX Media3](https://github.com/androidx/media) 和 [FFmpeg](https://ffmpeg.org/) 等开源项目。
