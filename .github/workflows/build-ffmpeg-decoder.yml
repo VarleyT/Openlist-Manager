@@ -1,0 +1,100 @@
+# 构建 Media3 官方 FFmpeg 音频解码扩展（decoder_ffmpeg），产物为 lib-decoder-ffmpeg-release.aar。
+# Google Maven 不提供该扩展，需按官方 README 在 Linux + NDK 下自行编译：
+# https://github.com/androidx/media/blob/release/libraries/decoder_ffmpeg/README.md
+# 只开启系统常缺的音频解码器；FFmpeg 以默认（LGPL）配置构建，不启用 GPL 组件。
+# 产物下载后放到 app/libs/，详见 docs/ffmpeg-decoder.md。
+name: Build FFmpeg decoder
+
+on:
+  workflow_dispatch:
+    inputs:
+      media3_version:
+        description: "Media3 版本（必须与 app 使用的 media3 版本一致）"
+        required: true
+        default: "1.11.1"
+      ffmpeg_branch:
+        description: "FFmpeg 分支（官方推荐 release/6.0）"
+        required: true
+        default: "release/6.0"
+      decoders:
+        description: "启用的 FFmpeg 解码器，空格分隔"
+        required: true
+        default: "ac3 eac3 dca truehd mlp alac"
+      android_abi:
+        description: "原生代码 API 级别（不得超过 app minSdk）"
+        required: true
+        default: "30"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      MEDIA3_VERSION: ${{ inputs.media3_version }}
+      FFMPEG_BRANCH: ${{ inputs.ffmpeg_branch }}
+      DECODERS: ${{ inputs.decoders }}
+      ANDROID_ABI_LEVEL: ${{ inputs.android_abi }}
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: 检出 androidx/media 与 FFmpeg
+        run: |
+          git clone --depth 1 --branch "$MEDIA3_VERSION" https://github.com/androidx/media.git media
+          git clone --depth 1 --branch "$FFMPEG_BRANCH" https://github.com/FFmpeg/FFmpeg.git \
+            media/libraries/decoder_ffmpeg/src/main/jni/ffmpeg
+
+      - name: 选择 NDK（r28+ 默认 16KB 页对齐）
+        run: |
+          NDK_PATH="${ANDROID_NDK_LATEST_HOME}"
+          test -d "$NDK_PATH"
+          echo "NDK_PATH=$NDK_PATH" >> "$GITHUB_ENV"
+          grep Pkg.Revision "$NDK_PATH/source.properties"
+          # 让 Gradle 编译 JNI 时使用同一个 NDK
+          echo 'android.ndkPath = System.getenv("NDK_PATH")' >> media/libraries/decoder_ffmpeg/build.gradle.kts
+
+      - name: 编译 FFmpeg 静态库
+        working-directory: media/libraries/decoder_ffmpeg/src/main/jni
+        run: |
+          FFMPEG_MODULE_PATH="$(cd ../ && pwd)"
+          # shellcheck disable=SC2086
+          ./build_ffmpeg.sh "$FFMPEG_MODULE_PATH" "$NDK_PATH" linux-x86_64 "$ANDROID_ABI_LEVEL" $DECODERS
+
+      - name: 编译 aar
+        working-directory: media
+        run: ./gradlew --no-daemon :lib-decoder-ffmpeg:assembleRelease
+
+      - name: 校验产物（ABI、16KB 页对齐）
+        run: |
+          AAR=media/libraries/decoder_ffmpeg/buildout/outputs/aar/lib-decoder-ffmpeg-release.aar
+          test -f "$AAR" || AAR=$(find media -name 'lib-decoder-ffmpeg-release.aar' | head -1)
+          echo "AAR=$AAR"
+          mkdir -p out check && cp "$AAR" out/
+          unzip -q -o "$AAR" -d check
+          READELF="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          status=0
+          for so in check/jni/*/libffmpegJNI.so; do
+            align=$("$READELF" -lW "$so" | awk '/LOAD/ {print $NF}' | sort -u | tr '\n' ' ')
+            echo "$so $(du -h "$so" | cut -f1) align=$align"
+            echo "$align" | grep -q '0x4000' || status=1
+          done
+          {
+            echo "media3=$MEDIA3_VERSION"
+            echo "ffmpeg=$FFMPEG_BRANCH ($(git -C media/libraries/decoder_ffmpeg/src/main/jni/ffmpeg rev-parse --short HEAD))"
+            echo "decoders=$DECODERS"
+            echo "android_abi=$ANDROID_ABI_LEVEL"
+            grep Pkg.Revision "$NDK_PATH/source.properties" | sed 's/Pkg.Revision = /ndk=/'
+            (cd out && sha256sum lib-decoder-ffmpeg-release.aar)
+          } | tee out/build-info.txt
+          exit $status
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lib-decoder-ffmpeg-${{ inputs.media3_version }}
+          path: out/
+          if-no-files-found: error
