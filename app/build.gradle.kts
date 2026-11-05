@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+    alias(libs.plugins.kover)
 }
 
 android {
@@ -22,7 +23,8 @@ android {
         versionCode = providers.gradleProperty("appVersionCode").orNull?.toInt() ?: 1
         versionName = providers.gradleProperty("appVersionName").orNull ?: "1.0.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // 仪器测试使用 Hilt 测试 Application，见 androidTest/.../HiltTestRunner.kt
+        testInstrumentationRunner = "com.bytegrep.oplist_manager.HiltTestRunner"
     }
 
     // 正式签名：读取根目录 keystore/keystore.properties（已被 git 忽略）；缺失时 release 包不签名
@@ -117,6 +119,41 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.okhttp.mockwebserver)
+    kspAndroidTest(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// 单元测试覆盖率：./gradlew koverHtmlReportDebug / koverXmlReportDebug
+// 只统计业务逻辑层；Compose 界面、Activity、DI 与生成代码由仪器测试或人工验证覆盖
+kover {
+    reports {
+        filters {
+            excludes {
+                classes(
+                    "*.BuildConfig",
+                    "*_Factory", "*_Factory\$*", "*_MembersInjector",
+                    "*_HiltModules*", "*Hilt_*", "hilt_aggregated_deps.*", "dagger.hilt.*",
+                    "*_Impl*", "*\$\$serializer",
+                    "*ComposableSingletons*",
+                    "com.bytegrep.oplist_manager.di.*",
+                    "com.bytegrep.oplist_manager.navigation.*",
+                    "com.bytegrep.oplist_manager.core.designsystem.*",
+                    "com.bytegrep.oplist_manager.MainActivity*",
+                    "com.bytegrep.oplist_manager.OpenListApp*",
+                    "com.bytegrep.oplist_manager.feature.player.VideoPlayerActivity*",
+                    "*ScreenKt*", "*ComponentsKt*", "*SheetsKt*", "*DialogKt*",
+                )
+                annotatedBy("androidx.compose.runtime.Composable")
+            }
+        }
+        // 行覆盖率低于 80% 时 koverVerifyDebug 失败（CI 执行）
+        verify {
+            rule {
+                minBound(80)
+            }
+        }
+    }
 }
