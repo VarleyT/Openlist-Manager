@@ -2,7 +2,7 @@
 # Google Maven 不提供该扩展，需按官方 README 在 Linux + NDK 下自行编译：
 # https://github.com/androidx/media/blob/release/libraries/decoder_ffmpeg/README.md
 # 只开启系统常缺的音频解码器；FFmpeg 以默认（LGPL）配置构建，不启用 GPL 组件。
-# 产物下载后放到 app/libs/，详见 docs/ffmpeg-decoder.md。
+# 产物下载后替换 app/libs/lib-decoder-ffmpeg-release.aar；升级 Media3 时须用相同版本重新构建（FfmpegAudioRenderer 为 @UnstableApi）。
 name: Build FFmpeg decoder
 
 on:

@@ -89,12 +89,21 @@ jobs:
           sha256sum "$DEST" > "$DEST.sha256"
           echo "file=$DEST" >> "$GITHUB_OUTPUT"
 
+      - name: Check release notes
+        run: |
+          NOTES="docs/release-notes/${GITHUB_REF_NAME}.md"
+          if [[ ! -s "$NOTES" ]]; then
+            echo "::error::缺少更新日志 $NOTES，请先提交后再打标签"
+            exit 1
+          fi
+
       - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
           name: OpenList Manager ${{ github.ref_name }}
           prerelease: ${{ steps.version.outputs.prerelease }}
-          generate_release_notes: true
+          body_path: docs/release-notes/${{ github.ref_name }}.md
+          generate_release_notes: false
           files: |
             ${{ steps.apk.outputs.file }}
             ${{ steps.apk.outputs.file }}.sha256

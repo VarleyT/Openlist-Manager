@@ -83,7 +83,8 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.dash)
     implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.androidx.media3.ui)
-    // FFmpeg 音频解码扩展（DTS / TrueHD / AC3 等软解兜底），由 build-ffmpeg-decoder 工作流构建，见 docs/ffmpeg-decoder.md
+    // FFmpeg 音频解码扩展（DTS / TrueHD / AC3 等软解兜底），由 .github/workflows/build-ffmpeg-decoder.yml 构建；
+    // 版本须与 media3 一致，升级 media3 时需重新构建并替换
     implementation(files("libs/lib-decoder-ffmpeg-release.aar"))
     implementation(libs.androidx.media3.decoder)
     implementation(libs.androidx.media3.ui.compose)
