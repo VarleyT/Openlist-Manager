@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,7 +26,8 @@ data class InlineSpan(val text: String, val bold: Boolean = false, val code: Boo
 
 /** 更新日志的块级结构 */
 sealed interface NoteBlock {
-    data class Heading(val spans: List<InlineSpan>) : NoteBlock
+    /** [level] 为 Markdown 标题级别：2 为分组（新增 / 变更 / 修复），3 及以上为条目标题 */
+    data class Heading(val level: Int, val spans: List<InlineSpan>) : NoteBlock
     data class Paragraph(val spans: List<InlineSpan>) : NoteBlock
     data class Bullet(val level: Int, val spans: List<InlineSpan>) : NoteBlock
     data object Gap : NoteBlock
@@ -62,7 +64,8 @@ object ReleaseNotesParser {
                 }
                 heading != null -> {
                     flushParagraph()
-                    if (heading.groupValues[1].length > 1) blocks += NoteBlock.Heading(inline(heading.groupValues[2]))
+                    val level = heading.groupValues[1].length
+                    if (level > 1) blocks += NoteBlock.Heading(level, inline(heading.groupValues[2]))
                 }
                 bullet != null -> {
                     flushParagraph()
@@ -108,15 +111,25 @@ fun ReleaseNotesText(markdown: String, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
         blocks.forEach { block ->
             when (block) {
-                is NoteBlock.Heading -> Text(
-                    annotated(block.spans),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = OpenListTheme.colors.ink,
-                    modifier = Modifier.padding(top = Spacing.sm),
-                )
+                is NoteBlock.Heading -> if (block.level <= GROUP_HEADING_LEVEL) {
+                    // 分组标签：小号灰色，与条目标题区分层级
+                    Text(
+                        annotated(block.spans),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = OpenListTheme.colors.ink3,
+                        modifier = Modifier.padding(top = Spacing.md),
+                    )
+                } else {
+                    Text(
+                        annotated(block.spans),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = OpenListTheme.colors.ink,
+                        modifier = Modifier.padding(top = Spacing.xs),
+                    )
+                }
                 is NoteBlock.Paragraph -> Text(annotated(block.spans), style = body, color = ink2)
                 is NoteBlock.Bullet -> Row(Modifier.padding(start = (BULLET_INDENT_DP * block.level).dp)) {
-                    Text("•  ", style = body, color = ink2)
+                    Text("•", style = body, color = ink2, fontWeight = FontWeight.Bold, modifier = Modifier.width(BULLET_WIDTH_DP.dp))
                     Text(annotated(block.spans), style = body, color = ink2)
                 }
                 NoteBlock.Gap -> Spacer(Modifier.height(Spacing.xs))
@@ -126,6 +139,8 @@ fun ReleaseNotesText(markdown: String, modifier: Modifier = Modifier) {
 }
 
 private const val BULLET_INDENT_DP = 12
+private const val BULLET_WIDTH_DP = 16
+private const val GROUP_HEADING_LEVEL = 2
 
 private fun annotated(spans: List<InlineSpan>): AnnotatedString = buildAnnotatedString {
     spans.forEach { span ->

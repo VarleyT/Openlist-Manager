@@ -29,8 +29,8 @@ class ReleaseNotesParserTest {
             listOf(
                 NoteBlock.Paragraph(listOf(InlineSpan("本版本让播放器可以播放 DTS 音频。"))),
                 NoteBlock.Gap,
-                NoteBlock.Heading(listOf(InlineSpan("新增"))),
-                NoteBlock.Heading(listOf(InlineSpan("支持 DTS"))),
+                NoteBlock.Heading(2, listOf(InlineSpan("新增"))),
+                NoteBlock.Heading(3, listOf(InlineSpan("支持 DTS"))),
                 NoteBlock.Bullet(0, listOf(InlineSpan("能播放的格式包括 DTS。"))),
                 NoteBlock.Bullet(1, listOf(InlineSpan("子项"))),
                 NoteBlock.Bullet(0, listOf(InlineSpan("安装包变大", bold = true), InlineSpan("，原因说明。"))),
