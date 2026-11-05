@@ -18,6 +18,8 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import com.bytegrep.oplist_manager.data.player.PlaybackSource
 import com.bytegrep.oplist_manager.data.player.SubtitleSource
 import java.util.Locale
@@ -60,9 +62,10 @@ class VideoPlayerController(
         }
         val renderers = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            // 系统硬解优先；系统不支持的音频（DTS / TrueHD / AC3 等）由 FFmpeg 扩展软解兜底
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
         ExoPlayer.Builder(context, renderers)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory()))
             .setAudioAttributes(
                 AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),
                 /* handleAudioFocus = */ true,
@@ -82,6 +85,10 @@ class VideoPlayerController(
     }
 
     val player: Player get() = exoPlayer
+
+    /** 蓝光 TS（m2ts）中的 DTS 音轨默认不识别，需显式开启 */
+    private fun extractorsFactory() = DefaultExtractorsFactory()
+        .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS)
 
     /** 仅在轨道变化时重建，避免每次进度刷新都生成新菜单导致整页重组 */
     private var trackMenu = TrackMenu()
