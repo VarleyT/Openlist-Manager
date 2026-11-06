@@ -40,11 +40,18 @@ data class TypedTask(val type: TaskType, val task: TaskInfo) {
 
 enum class TaskTab(val label: String) { UNDONE("进行中"), DONE("已完成") }
 
-/** 批量操作，[action] 对应 OpenList 接口参数 */
-enum class TaskBulkAction(val action: String, val label: String, val confirmMessage: String) {
-    CLEAR_DONE("clear_done", "清除已完成", "将清除所有已结束的任务记录（含失败、已取消）。"),
-    CLEAR_SUCCEEDED("clear_succeeded", "清除成功任务", "将清除所有已成功完成的任务记录。"),
-    RETRY_FAILED("retry_failed", "重试全部失败", "将重新执行所有失败的任务。"),
+/** 按条件批量处理已结束任务，[action] 对应 OpenList 接口参数 */
+enum class TaskBulkAction(val action: String, val label: String, val doneMessage: String, val confirmMessage: String) {
+    RETRY_FAILED("retry_failed", "重试失败项", "已重试失败任务", "将重新执行所有失败的任务。"),
+    CLEAR_SUCCEEDED("clear_succeeded", "清除成功项", "已清除成功任务", "只清除成功完成的任务记录，失败和已取消的会保留，方便之后重试。"),
+    CLEAR_DONE("clear_done", "清除全部", "已清除全部已结束任务", "将清除所有已结束的任务记录，包括成功、失败和已取消的。"),
+}
+
+/** 对多选任务的批量操作，[action] 对应 OpenList 的 *_some 接口 */
+enum class TaskBatchAction(val action: String, val label: String) {
+    CANCEL("cancel_some", "取消"),
+    RETRY("retry_some", "重试"),
+    DELETE("delete_some", "删除"),
 }
 
 /**

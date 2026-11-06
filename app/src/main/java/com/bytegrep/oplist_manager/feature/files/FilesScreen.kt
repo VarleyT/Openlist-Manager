@@ -58,6 +58,7 @@ import com.bytegrep.oplist_manager.core.designsystem.component.EmptyState
 import com.bytegrep.oplist_manager.core.designsystem.component.ErrorState
 import com.bytegrep.oplist_manager.core.designsystem.component.LargeTitleBar
 import com.bytegrep.oplist_manager.core.designsystem.component.LoadingState
+import com.bytegrep.oplist_manager.core.designsystem.component.SelectionTopBar
 import com.bytegrep.oplist_manager.core.designsystem.component.TextInputDialog
 import com.bytegrep.oplist_manager.core.designsystem.theme.OpenListTheme
 import com.bytegrep.oplist_manager.core.designsystem.theme.Spacing

@@ -66,10 +66,23 @@ data class TasksUiState(
     /** 全部类型均加载失败 */
     val error: String? = null,
     val isBusy: Boolean = false,
+    /** 多选中的任务 key（[TypedTask.key]），为空表示未处于多选模式 */
+    val selectedKeys: Set<String> = emptySet(),
 ) {
     private fun List<TypedTask>.filtered() = if (selectedType == null) this else filter { it.type == selectedType }
     val visibleUndone: List<TypedTask> get() = undone.filtered()
     val visibleDone: List<TypedTask> get() = done.filtered()
+    /** 当前页签可见的服务器任务 */
+    val visibleTasks: List<TypedTask> get() = if (tab == TaskTab.UNDONE) visibleUndone else visibleDone
+    val selectionMode: Boolean get() = selectedKeys.isNotEmpty()
+    val allSelected: Boolean get() = visibleTasks.isNotEmpty() && visibleTasks.all { it.key in selectedKeys }
+
+    /** 列表变化后剔除已不可见的选中项 */
+    fun pruneSelection(): TasksUiState {
+        if (selectedKeys.isEmpty()) return this
+        val keys = visibleTasks.mapTo(HashSet()) { it.key }
+        return copy(selectedKeys = selectedKeys.filterTo(HashSet()) { it in keys })
+    }
     val summary: TaskSummary get() = summarize((visibleUndone + visibleDone).map { it.task })
 }
 
@@ -104,11 +117,69 @@ class TasksViewModel @Inject constructor(
     }
 
     fun selectTab(tab: TaskTab) {
-        _state.update { it.copy(tab = tab) }
+        _state.update { it.copy(tab = tab, selectedKeys = emptySet()) }
     }
 
     fun selectType(type: TaskType?) {
-        _state.update { it.copy(selectedType = type) }
+        _state.update { it.copy(selectedType = type, selectedKeys = emptySet()) }
+    }
+
+    // ---------- 多选 ----------
+
+    fun enterSelection(task: TypedTask) = _state.update { it.copy(selectedKeys = setOf(task.key)) }
+
+    fun toggleSelection(task: TypedTask) = _state.update {
+        val keys = if (task.key in it.selectedKeys) it.selectedKeys - task.key else it.selectedKeys + task.key
+        it.copy(selectedKeys = keys)
+    }
+
+    fun toggleSelectAll() = _state.update {
+        it.copy(selectedKeys = if (it.allSelected) emptySet() else it.visibleTasks.mapTo(HashSet()) { task -> task.key })
+    }
+
+    fun exitSelection() = _state.update { it.copy(selectedKeys = emptySet()) }
+
+    /** 对选中任务执行批量操作，完成后退出多选并刷新 */
+    fun batch(action: TaskBatchAction) {
+        val current = _state.value
+        runBatch(action, current.visibleTasks.filter { it.key in current.selectedKeys })
+    }
+
+    /** 取消当前列表（按类型筛选）中的全部进行中任务；服务端无对应条件接口，逐条传入 cancel_some */
+    fun cancelAll() = runBatch(TaskBatchAction.CANCEL, _state.value.visibleUndone)
+
+    /** 按类型分组调用 *_some 接口 */
+    private fun runBatch(action: TaskBatchAction, selected: List<TypedTask>) {
+        if (selected.isEmpty()) return
+        launchBusy {
+            val taskErrors = mutableListOf<String>()
+            val requestErrors = mutableListOf<String>()
+            var failed = 0
+            selected.groupBy { it.type }.forEach { (type, tasks) ->
+                try {
+                    val errors = repository.batch(type, action.action, tasks.map { it.task.id })
+                    failed += errors.size
+                    taskErrors += errors.values
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failed += tasks.size
+                    requestErrors += "${type.label}：${e.userMessage()}"
+                }
+            }
+            _state.update { it.copy(selectedKeys = emptySet()) }
+            _events.send(batchMessage(action, selected.size, failed, (taskErrors.distinct() + requestErrors)))
+        }
+    }
+
+    private fun batchMessage(action: TaskBatchAction, total: Int, failed: Int, reasons: List<String>): String {
+        val succeeded = total - failed
+        val detail = reasons.joinToString("；")
+        return when {
+            failed == 0 -> "已${action.label} $total 项"
+            succeeded == 0 -> "${action.label}失败 $failed 项：$detail"
+            else -> "已${action.label} $succeeded 项，失败 $failed 项：$detail"
+        }
     }
 
     /** 同时刷新进行中与已完成列表 */
@@ -136,7 +207,7 @@ class TasksViewModel @Inject constructor(
                 isRefreshing = false,
                 error = if (allFailed) errors.firstOrNull() else null,
                 partialError = if (!allFailed && errors.isNotEmpty()) errors.joinToString("；") else null,
-            )
+            ).pruneSelection()
         }
     }
 
@@ -160,11 +231,11 @@ class TasksViewModel @Inject constructor(
         val before = _state.value.undone.map { it.key }.toSet()
         val result = fetchAll(repository::undone)
         if (result.errors.size == TaskType.entries.size) return // 轮询失败静默跳过，等待下次
-        _state.update { it.copy(undone = result.tasks) }
+        _state.update { it.copy(undone = result.tasks).pruneSelection() }
         // 有任务结束时同步刷新已完成列表，使统计保持准确
         if (!result.tasks.map { it.key }.toSet().containsAll(before)) {
             val done = fetchAll(repository::done)
-            if (done.errors.size < TaskType.entries.size) _state.update { it.copy(done = done.tasks) }
+            if (done.errors.size < TaskType.entries.size) _state.update { it.copy(done = done.tasks).pruneSelection() }
         }
     }
 
@@ -217,7 +288,7 @@ class TasksViewModel @Inject constructor(
                     "${type.label}：${e.userMessage()}"
                 }
             }
-            val message = if (failures.isEmpty()) "${action.label}完成" else "${action.label}部分失败：${failures.joinToString("；")}"
+            val message = if (failures.isEmpty()) action.doneMessage else "${action.label}部分失败：${failures.joinToString("；")}"
             _events.send(message)
         }
     }

@@ -177,6 +177,15 @@ interface OpenListApi {
         @Query("tid") tid: String,
     ): ApiEnvelope<JsonElement?>
 
+    /** [action] 为 cancel_some / delete_some / retry_some；返回 tid -> 失败原因，全部成功时为空 */
+    @POST("api/{scope}/{type}/{action}")
+    suspend fun taskBatchAction(
+        @Path("scope", encoded = true) scope: String,
+        @Path("type") type: String,
+        @Path("action") action: String,
+        @Body tids: List<String>,
+    ): ApiEnvelope<Map<String, String>?>
+
     /** [action] 为 clear_done / clear_succeeded / retry_failed */
     @POST("api/{scope}/{type}/{action}")
     suspend fun taskBulkAction(

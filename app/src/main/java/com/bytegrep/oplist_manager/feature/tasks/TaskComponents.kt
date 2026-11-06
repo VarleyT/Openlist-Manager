@@ -2,6 +2,7 @@ package com.bytegrep.oplist_manager.feature.tasks
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,12 +17,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.FolderZip
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.FilterChip
@@ -145,11 +148,20 @@ internal fun TaskCard(
     busy: Boolean,
     callbacks: TaskCallbacks,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
 ) {
     val info = task.task
-    OlCard(onClick = onClick) {
+    val colors = OpenListTheme.colors
+    OlCard(
+        modifier = Modifier
+            .clip(RoundedCornerShape(Radius.card))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        borderColor = if (selected) colors.accent else colors.edge,
+    ) {
         Column(Modifier.padding(Spacing.lg)) {
-            TaskHeader(type = task.type, info = info)
+            TaskHeader(type = task.type, info = info, selection = if (selectionMode) selected else null)
             if (!isDoneTab && info.isRunning) {
                 Spacer(Modifier.height(Spacing.md))
                 ProgressLine(fraction = (info.progress / PERCENT_SCALE).toFloat(), totalBytes = info.totalBytes)
@@ -162,21 +174,25 @@ internal fun TaskCard(
                 Text(
                     info.error,
                     style = MaterialTheme.typography.bodySmall,
-                    color = OpenListTheme.colors.danger,
+                    color = colors.danger,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.height(Spacing.sm))
             TaskTimeLine(info)
-            HorizontalDivider(Modifier.padding(vertical = Spacing.sm), color = OpenListTheme.colors.hairline)
-            TaskActions(task = task, isDoneTab = isDoneTab, busy = busy, callbacks = callbacks, onDetail = onClick)
+            // 多选时隐藏单项操作，统一使用底部操作栏
+            if (!selectionMode) {
+                HorizontalDivider(Modifier.padding(vertical = Spacing.sm), color = colors.hairline)
+                TaskActions(task = task, isDoneTab = isDoneTab, busy = busy, callbacks = callbacks, onDetail = onClick)
+            }
         }
     }
 }
 
+/** [selection] 为 null 表示非多选模式，否则表示是否选中 */
 @Composable
-private fun TaskHeader(type: TaskType, info: TaskInfo) {
+private fun TaskHeader(type: TaskType, info: TaskInfo, selection: Boolean? = null) {
     val colors = OpenListTheme.colors
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconBlock(icon = typeIcon(type), tint = colors.accent, background = colors.accentSoft)
@@ -201,6 +217,14 @@ private fun TaskHeader(type: TaskType, info: TaskInfo) {
         }
         Spacer(Modifier.width(Spacing.sm))
         StatusPill(text = info.stateLabel, kind = pillKind(info.state))
+        selection?.let { checked ->
+            Spacer(Modifier.width(Spacing.sm))
+            Icon(
+                if (checked) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                contentDescription = if (checked) "已选中" else "未选中",
+                tint = if (checked) colors.accent else colors.ink3,
+            )
+        }
     }
 }
 

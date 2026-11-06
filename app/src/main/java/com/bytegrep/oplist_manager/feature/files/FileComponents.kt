@@ -284,24 +284,6 @@ fun Breadcrumb(path: String, onNavigate: (String) -> Unit, modifier: Modifier = 
     }
 }
 
-/** 多选模式顶栏 */
-@Composable
-fun SelectionTopBar(count: Int, allSelected: Boolean, onToggleAll: () -> Unit, onCancel: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xs, vertical = Spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onCancel) { Icon(Icons.Outlined.Close, contentDescription = "取消", tint = OpenListTheme.colors.ink) }
-        Text("已选 $count 项", style = MaterialTheme.typography.headlineSmall, color = OpenListTheme.colors.ink, modifier = Modifier.weight(1f))
-        Text(
-            if (allSelected) "全不选" else "全选",
-            style = MaterialTheme.typography.labelLarge,
-            color = OpenListTheme.colors.accent,
-            modifier = Modifier.clip(RoundedCornerShape(Radius.pill)).clickable(onClick = onToggleAll).padding(Spacing.md),
-        )
-    }
-}
-
 /** 上传进度横幅 */
 @Composable
 fun UploadBannerView(banner: UploadBanner, modifier: Modifier = Modifier) {

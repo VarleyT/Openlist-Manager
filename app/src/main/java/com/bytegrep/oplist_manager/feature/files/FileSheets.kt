@@ -49,6 +49,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.bytegrep.oplist_manager.core.designsystem.component.IconBlock
+import com.bytegrep.oplist_manager.core.designsystem.component.SelectionActionBar
+import com.bytegrep.oplist_manager.core.designsystem.component.SelectionBarAction
 import com.bytegrep.oplist_manager.core.designsystem.theme.OpenListTheme
 import com.bytegrep.oplist_manager.core.designsystem.theme.Radius
 import com.bytegrep.oplist_manager.core.designsystem.theme.Spacing
@@ -206,28 +208,10 @@ fun SelectionActionBar(
     onDelete: () -> Unit,
 ) {
     val enabled = count > 0
-    Column(Modifier.fillMaxWidth().background(OpenListTheme.colors.surface)) {
-        HorizontalDivider(color = OpenListTheme.colors.hairline)
-        Row(Modifier.fillMaxWidth().padding(vertical = Spacing.xs), horizontalArrangement = Arrangement.SpaceEvenly) {
-            BarAction(Icons.AutoMirrored.Outlined.DriveFileMove, "移动", enabled && permissions.canMove, OpenListTheme.colors.ink, onMove)
-            BarAction(Icons.Outlined.ContentCopy, "复制", enabled && permissions.canCopy, OpenListTheme.colors.ink, onCopy)
-            BarAction(Icons.Outlined.Delete, "删除", enabled && permissions.canRemove, OpenListTheme.colors.danger, onDelete)
-        }
-    }
-}
-
-@Composable
-private fun BarAction(icon: ImageVector, label: String, enabled: Boolean, tint: Color, onClick: () -> Unit) {
-    val color = if (enabled) tint else OpenListTheme.colors.ink3
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(Radius.button))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = Spacing.xl, vertical = Spacing.sm),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(icon, contentDescription = null, tint = color)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = color)
+    SelectionActionBar {
+        SelectionBarAction(Icons.AutoMirrored.Outlined.DriveFileMove, "移动", enabled && permissions.canMove, OpenListTheme.colors.ink, onMove)
+        SelectionBarAction(Icons.Outlined.ContentCopy, "复制", enabled && permissions.canCopy, OpenListTheme.colors.ink, onCopy)
+        SelectionBarAction(Icons.Outlined.Delete, "删除", enabled && permissions.canRemove, OpenListTheme.colors.danger, onDelete)
     }
 }
 

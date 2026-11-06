@@ -123,6 +123,10 @@ class TaskRepository @Inject constructor(
         session.request { taskAction(scope(), type.path, action, tid).unwrapNullable() }
     }
 
+    /** [action]: cancel_some / delete_some / retry_some；返回 tid -> 失败原因 */
+    suspend fun batch(type: TaskType, action: String, tids: List<String>): Map<String, String> =
+        session.request { taskBatchAction(scope(), type.path, action, tids).unwrapNullable().orEmpty() }
+
     /** [action]: clear_done / clear_succeeded / retry_failed */
     suspend fun bulk(type: TaskType, action: String) {
         session.request { taskBulkAction(scope(), type.path, action).unwrapNullable() }

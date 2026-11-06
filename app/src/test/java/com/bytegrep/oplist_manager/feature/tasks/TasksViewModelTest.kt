@@ -256,7 +256,7 @@ class TasksViewModelTest {
         vm.events.test {
             vm.bulk(TaskBulkAction.CLEAR_DONE)
             advanceUntilIdle()
-            assertEquals("清除已完成完成", awaitItem())
+            assertEquals("已清除全部已结束任务", awaitItem())
         }
         TaskType.entries.forEach { type ->
             coVerify(exactly = 1) { repository.bulk(type, "clear_done") }
@@ -283,10 +283,142 @@ class TasksViewModelTest {
         vm.events.test {
             vm.bulk(TaskBulkAction.RETRY_FAILED)
             advanceUntilIdle()
-            assertEquals("重试全部失败部分失败：上传：不支持", awaitItem())
+            assertEquals("重试失败项部分失败：上传：不支持", awaitItem())
         }
         coVerify(exactly = 2) { repository.done(TaskType.COPY) }
         assertFalse(vm.state.value.isBusy)
+    }
+
+    // endregion
+
+    // region 多选
+
+    @Test
+    fun `long press enters selection and toggling last item exits`() = runTest(dispatcher) {
+        val vm = createViewModel()
+        val copy = TypedTask(TaskType.COPY, copyTask)
+
+        vm.enterSelection(copy)
+        runCurrent()
+        assertEquals(setOf(copy.key), vm.state.value.selectedKeys)
+        assertTrue(vm.state.value.selectionMode)
+
+        vm.toggleSelection(copy)
+        runCurrent()
+        assertFalse(vm.state.value.selectionMode)
+    }
+
+    @Test
+    fun `toggle select all covers visible tasks of current tab`() = runTest(dispatcher) {
+        val vm = createViewModel()
+        vm.enterSelection(TypedTask(TaskType.COPY, copyTask))
+        runCurrent()
+
+        vm.toggleSelectAll()
+        runCurrent()
+        assertEquals(setOf("copy:c1", "offline_download:o1"), vm.state.value.selectedKeys)
+        assertTrue(vm.state.value.allSelected)
+
+        vm.toggleSelectAll()
+        runCurrent()
+        assertTrue(vm.state.value.selectedKeys.isEmpty())
+    }
+
+    @Test
+    fun `switching tab or type clears selection`() = runTest(dispatcher) {
+        val vm = createViewModel()
+        vm.enterSelection(TypedTask(TaskType.COPY, copyTask))
+        runCurrent()
+        vm.selectTab(TaskTab.DONE)
+        runCurrent()
+        assertFalse(vm.state.value.selectionMode)
+
+        vm.enterSelection(TypedTask(TaskType.COPY, doneTask))
+        runCurrent()
+        vm.selectType(TaskType.UPLOAD)
+        runCurrent()
+        assertFalse(vm.state.value.selectionMode)
+    }
+
+    @Test
+    fun `batch groups selected tasks by type and exits selection`() = runTest(dispatcher) {
+        coEvery { repository.batch(any(), any(), any()) } returns emptyMap()
+        val vm = createViewModel()
+        vm.enterSelection(TypedTask(TaskType.COPY, copyTask))
+        runCurrent()
+        vm.toggleSelection(TypedTask(TaskType.OFFLINE_DOWNLOAD, offlineTask))
+        runCurrent()
+
+        vm.events.test {
+            vm.batch(TaskBatchAction.CANCEL)
+            advanceUntilIdle()
+            assertEquals("已取消 2 项", awaitItem())
+        }
+        coVerify(exactly = 1) { repository.batch(TaskType.COPY, "cancel_some", listOf("c1")) }
+        coVerify(exactly = 1) { repository.batch(TaskType.OFFLINE_DOWNLOAD, "cancel_some", listOf("o1")) }
+        assertFalse(vm.state.value.selectionMode)
+        coVerify(exactly = 2) { repository.undone(TaskType.COPY) }
+    }
+
+    @Test
+    fun `batch reports per task failures and request failures`() = runTest(dispatcher) {
+        coEvery { repository.batch(TaskType.COPY, any(), any()) } returns mapOf("c1" to "task not found")
+        coEvery { repository.batch(TaskType.OFFLINE_DOWNLOAD, any(), any()) } throws AppException.Server(500, "不支持")
+        val vm = createViewModel()
+        vm.enterSelection(TypedTask(TaskType.COPY, copyTask))
+        runCurrent()
+        vm.toggleSelection(TypedTask(TaskType.OFFLINE_DOWNLOAD, offlineTask))
+        runCurrent()
+
+        vm.events.test {
+            vm.batch(TaskBatchAction.RETRY)
+            advanceUntilIdle()
+            assertEquals("重试失败 2 项：task not found；离线下载：不支持", awaitItem())
+        }
+        assertFalse(vm.state.value.isBusy)
+    }
+
+    @Test
+    fun `cancelAll cancels every visible undone task grouped by type`() = runTest(dispatcher) {
+        coEvery { repository.batch(any(), any(), any()) } returns emptyMap()
+        val vm = createViewModel()
+
+        vm.events.test {
+            vm.cancelAll()
+            advanceUntilIdle()
+            assertEquals("已取消 2 项", awaitItem())
+        }
+        coVerify(exactly = 1) { repository.batch(TaskType.COPY, "cancel_some", listOf("c1")) }
+        coVerify(exactly = 1) { repository.batch(TaskType.OFFLINE_DOWNLOAD, "cancel_some", listOf("o1")) }
+    }
+
+    @Test
+    fun `cancelAll respects type filter`() = runTest(dispatcher) {
+        coEvery { repository.batch(any(), any(), any()) } returns emptyMap()
+        val vm = createViewModel()
+        vm.selectType(TaskType.COPY)
+        runCurrent()
+
+        vm.cancelAll()
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.batch(TaskType.COPY, "cancel_some", listOf("c1")) }
+        coVerify(exactly = 1) { repository.batch(any(), any(), any()) }
+    }
+
+    @Test
+    fun `selection drops tasks that disappear after refresh`() = runTest(dispatcher) {
+        val vm = createViewModel()
+        vm.enterSelection(TypedTask(TaskType.COPY, copyTask))
+        runCurrent()
+        vm.toggleSelection(TypedTask(TaskType.OFFLINE_DOWNLOAD, offlineTask))
+        runCurrent()
+        coEvery { repository.undone(TaskType.COPY) } returns emptyList()
+
+        vm.refresh()
+        advanceUntilIdle()
+
+        assertEquals(setOf("offline_download:o1"), vm.state.value.selectedKeys)
     }
 
     // endregion
