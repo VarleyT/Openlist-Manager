@@ -100,6 +100,8 @@ data class FilesUiState(
     val picker: DirPickerState? = null,
     val overlay: FilesOverlay? = null,
     val upload: UploadBanner? = null,
+    /** 服务端进行中的后台任务数（顶栏角标） */
+    val runningTasks: Int = 0,
 ) {
     val isRoot: Boolean get() = currentPath == "/"
     val allSelected: Boolean get() = items.isNotEmpty() && selectedNames.size == items.size

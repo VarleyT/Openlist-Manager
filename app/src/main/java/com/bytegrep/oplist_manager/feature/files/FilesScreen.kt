@@ -24,17 +24,13 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.SearchOff
-import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -54,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bytegrep.oplist_manager.core.common.joinPath
 import com.bytegrep.oplist_manager.core.designsystem.component.ConfirmDialog
@@ -76,6 +73,11 @@ fun FilesScreen(onOpenPreview: (String) -> Unit, onOpenTasks: () -> Unit) {
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
+    // 页面在前台时轮询任务角标（含从任务页返回），离开页面即停止
+    LifecycleResumeEffect(vm) {
+        vm.startTaskPolling()
+        onPauseOrDispose { vm.stopTaskPolling() }
+    }
 
     val startUpload = rememberUploadLauncher(onPicked = vm::upload)
     BackHandler(enabled = state.selectionMode || state.search != null || !state.isRoot) {
@@ -90,13 +92,13 @@ fun FilesScreen(onOpenPreview: (String) -> Unit, onOpenTasks: () -> Unit) {
     }
 
     Box(Modifier.fillMaxSize().background(OpenListTheme.colors.bg)) {
-        FilesContent(state = state, vm = vm, openItem = openItem, onOpenPreview = onOpenPreview)
+        FilesContent(state = state, vm = vm, openItem = openItem, onOpenPreview = onOpenPreview, onOpenTasks = onOpenTasks)
         if (!state.selectionMode && state.search == null && state.permissions.canWrite) {
             AddFab(onClick = { vm.showOverlay(FilesOverlay.AddSheet) }, modifier = Modifier.align(Alignment.BottomEnd))
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = Spacing.lg))
     }
-    FilesOverlays(state = state, vm = vm, openItem = openItem, onUpload = startUpload, onOpenTasks = onOpenTasks)
+    FilesOverlays(state = state, vm = vm, openItem = openItem, onUpload = startUpload)
 }
 
 /** 上传：Android 13+ 先请求通知权限（拒绝也继续），再打开系统文件选择器 */
@@ -123,9 +125,10 @@ private fun FilesContent(
     vm: FilesViewModel,
     openItem: (FsObject) -> Unit,
     onOpenPreview: (String) -> Unit,
+    onOpenTasks: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        FilesHeader(state, vm)
+        FilesHeader(state, vm, onOpenTasks)
         if (state.isOperating) LinearProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = Spacing.page))
         state.upload?.let { UploadBannerView(it) }
         Box(Modifier.weight(1f)) {
@@ -154,22 +157,18 @@ private fun FilesContent(
 }
 
 @Composable
-private fun FilesHeader(state: FilesUiState, vm: FilesViewModel) {
+private fun FilesHeader(state: FilesUiState, vm: FilesViewModel, onOpenTasks: () -> Unit) {
     if (state.selectionMode) {
         SelectionTopBar(state.selectedNames.size, state.allSelected, vm::toggleSelectAll, vm::exitSelection)
         return
     }
     LargeTitleBar(title = "文件管理") {
-        IconButton(onClick = { vm.showOverlay(FilesOverlay.SortSheet) }) {
-            Icon(Icons.Outlined.SwapVert, contentDescription = "排序", tint = OpenListTheme.colors.ink)
-        }
-        IconButton(onClick = vm::toggleGrid) {
-            Icon(
-                if (state.isGrid) Icons.AutoMirrored.Outlined.ViewList else Icons.Outlined.GridView,
-                contentDescription = if (state.isGrid) "列表视图" else "网格视图",
-                tint = OpenListTheme.colors.ink,
-            )
-        }
+        TaskEntryButton(runningTasks = state.runningTasks, onClick = onOpenTasks)
+        FilesMoreMenu(
+            isGrid = state.isGrid,
+            onOpenSort = { vm.showOverlay(FilesOverlay.SortSheet) },
+            onSetGrid = vm::setGrid,
+        )
     }
     FileSearchField(query = state.searchQuery, onQueryChange = vm::onSearchQueryChange, onSearch = vm::search, onClear = vm::exitSearch)
     if (state.search == null) {
@@ -356,7 +355,6 @@ private fun FilesOverlays(
     vm: FilesViewModel,
     openItem: (FsObject) -> Unit,
     onUpload: () -> Unit,
-    onOpenTasks: () -> Unit,
 ) {
     state.picker?.let { picker ->
         DirPickerSheet(picker, vm::pickerOpen, vm::pickerUp, vm::confirmPicker, vm::dismissPicker)
@@ -367,7 +365,6 @@ private fun FilesOverlays(
             canWrite = state.permissions.canWrite,
             onUpload = { vm.dismissOverlay(); onUpload() },
             onNewFolder = { vm.showOverlay(FilesOverlay.NewFolder) },
-            onOpenTasks = { vm.dismissOverlay(); onOpenTasks() },
             onDismiss = vm::dismissOverlay,
         )
         FilesOverlay.SortSheet -> SortSheet(state.sort, vm::setSort, vm::dismissOverlay)

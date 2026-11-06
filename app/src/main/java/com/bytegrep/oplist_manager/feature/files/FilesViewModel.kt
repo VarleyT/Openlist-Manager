@@ -10,14 +10,20 @@ import com.bytegrep.oplist_manager.core.common.parentPath
 import com.bytegrep.oplist_manager.core.common.userMessage
 import com.bytegrep.oplist_manager.core.datastore.AppSettingsStore
 import com.bytegrep.oplist_manager.data.model.FsObject
+import com.bytegrep.oplist_manager.data.model.TaskType
 import com.bytegrep.oplist_manager.data.model.UserDto
 import com.bytegrep.oplist_manager.data.model.UserPermission
 import com.bytegrep.oplist_manager.data.repository.FileRepository
+import com.bytegrep.oplist_manager.data.repository.TaskRepository
 import com.bytegrep.oplist_manager.data.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +38,9 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
 
+/** 有进行中任务时，后台任务角标的刷新间隔 */
+internal const val TASK_POLL_INTERVAL_MS = 5_000L
+
 @HiltViewModel
 class FilesViewModel @Inject constructor(
     private val repository: FileRepository,
@@ -39,6 +48,7 @@ class FilesViewModel @Inject constructor(
     private val settingsStore: AppSettingsStore,
     private val uploadScheduler: UploadScheduler,
     private val downloadHelper: DownloadHelper,
+    private val taskRepository: TaskRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(FilesUiState())
@@ -51,6 +61,8 @@ class FilesViewModel @Inject constructor(
     private var loadJob: Job? = null
     private var searchJob: Job? = null
     private var pickerJob: Job? = null
+    private var taskCountJob: Job? = null
+    private var taskPolling = false
     private var listWrite: Boolean = false
     private var handledUploads: Set<UUID>? = null
 
@@ -74,7 +86,10 @@ class FilesViewModel @Inject constructor(
         if (!_state.value.isRoot) load(parentPath(_state.value.currentPath))
     }
 
-    fun refresh() = load(_state.value.currentPath, refresh = true, pull = true)
+    fun refresh() {
+        load(_state.value.currentPath, refresh = true, pull = true)
+        refreshTaskCount()
+    }
 
     fun retry() = load(_state.value.currentPath)
 
@@ -126,10 +141,10 @@ class FilesViewModel @Inject constructor(
         _state.update { it.copy(sort = sort, items = sortFiles(it.items, sort), overlay = null) }
     }
 
-    fun toggleGrid() {
-        val next = !_state.value.isGrid
-        _state.update { it.copy(isGrid = next) }
-        viewModelScope.launch { settingsStore.setFileGrid(next) }
+    fun setGrid(grid: Boolean) {
+        if (grid == _state.value.isGrid) return
+        _state.update { it.copy(isGrid = grid) }
+        viewModelScope.launch { settingsStore.setFileGrid(grid) }
     }
 
     fun showOverlay(overlay: FilesOverlay) = _state.update { it.copy(overlay = overlay) }
@@ -307,6 +322,7 @@ class FilesViewModel @Inject constructor(
                     TransferMode.MOVE -> repository.move(picker.srcDir, picker.path, picker.names)
                     TransferMode.COPY -> repository.copy(picker.srcDir, picker.path, picker.names)
                 }
+                refreshTaskCount()
             } catch (e: AppException) {
                 throw AppException.Unknown("${label}失败：${e.userMessage()}", e)
             }
@@ -404,6 +420,49 @@ class FilesViewModel @Inject constructor(
             }
         }
         if (needRefresh && _state.value.search == null) load(_state.value.currentPath)
+        refreshTaskCount()
+    }
+
+    // ---------------- 后台任务角标 ----------------
+
+    /** 页面在前台时开启轮询：有进行中任务就每隔 [TASK_POLL_INTERVAL_MS] 刷新一次角标 */
+    fun startTaskPolling() {
+        taskPolling = true
+        refreshTaskCount()
+    }
+
+    /** 页面退到后台时停止轮询 */
+    fun stopTaskPolling() {
+        taskPolling = false
+        taskCountJob?.cancel()
+    }
+
+    /**
+     * 统计服务端进行中/排队中的任务数；全部类型都查询失败时保留原值。
+     * 轮询开启且仍有进行中任务时继续定时刷新，数量归零后停止，等下次操作或回到页面再触发。
+     */
+    fun refreshTaskCount() {
+        taskCountJob?.cancel()
+        taskCountJob = viewModelScope.launch {
+            while (true) {
+                fetchRunningTaskCount()?.let { running -> _state.update { it.copy(runningTasks = running) } }
+                if (!taskPolling || _state.value.runningTasks == 0) break
+                delay(TASK_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    private suspend fun fetchRunningTaskCount(): Int? = coroutineScope {
+        val perType = TaskType.entries.map { type -> async { undoneOrNull(type) } }.awaitAll()
+        if (perType.all { it == null }) null else perType.sumOf { tasks -> tasks.orEmpty().count { it.isRunning } }
+    }
+
+    private suspend fun undoneOrNull(type: TaskType) = try {
+        taskRepository.undone(type)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 
     private fun uploadBannerOf(infos: List<WorkInfo>): UploadBanner? {

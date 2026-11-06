@@ -28,7 +28,6 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -105,12 +104,11 @@ private fun SheetTitle(text: String) {
 
 /** FAB “+” 菜单 */
 @Composable
-fun AddSheet(canWrite: Boolean, onUpload: () -> Unit, onNewFolder: () -> Unit, onOpenTasks: () -> Unit, onDismiss: () -> Unit) {
+fun AddSheet(canWrite: Boolean, onUpload: () -> Unit, onNewFolder: () -> Unit, onDismiss: () -> Unit) {
     OlSheet(onDismiss) {
         SheetTitle("新建")
         SheetAction(Icons.Outlined.UploadFile, "上传文件", onUpload, enabled = canWrite)
         SheetAction(Icons.Outlined.CreateNewFolder, "新建文件夹", onNewFolder, enabled = canWrite)
-        SheetAction(Icons.Outlined.TaskAlt, "查看后台任务", onOpenTasks)
         if (!canWrite) {
             Text(
                 "当前目录无写入权限",

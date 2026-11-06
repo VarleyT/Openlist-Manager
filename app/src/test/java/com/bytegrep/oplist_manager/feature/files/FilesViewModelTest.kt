@@ -14,7 +14,11 @@ import com.bytegrep.oplist_manager.data.model.FsObject
 import com.bytegrep.oplist_manager.data.model.FsSearchItem
 import com.bytegrep.oplist_manager.data.model.UserDto
 import com.bytegrep.oplist_manager.data.model.UserPermission
+import com.bytegrep.oplist_manager.data.model.TaskInfo
+import com.bytegrep.oplist_manager.data.model.TaskState
+import com.bytegrep.oplist_manager.data.model.TaskType
 import com.bytegrep.oplist_manager.data.repository.FileRepository
+import com.bytegrep.oplist_manager.data.repository.TaskRepository
 import com.bytegrep.oplist_manager.data.session.Session
 import com.bytegrep.oplist_manager.data.session.SessionManager
 import io.mockk.coEvery
@@ -32,7 +36,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -55,6 +61,7 @@ class FilesViewModelTest {
     private val settingsStore = mockk<AppSettingsStore>(relaxed = true)
     private val uploadScheduler = mockk<UploadScheduler>()
     private val downloadHelper = mockk<DownloadHelper>()
+    private val taskRepository = mockk<TaskRepository>()
 
     private val currentUser = MutableStateFlow<UserDto?>(UserDto(id = 1, permission = 0))
     private val sessionFlow = MutableStateFlow<Session?>(null)
@@ -76,6 +83,7 @@ class FilesViewModelTest {
         every { uploadScheduler.observe() } returns uploads
         coEvery { repository.list("/", any()) } returns FsListData(content = rootItems)
         coEvery { repository.list("/Docs", any()) } returns FsListData(content = docsItems)
+        coEvery { taskRepository.undone(any()) } returns emptyList()
     }
 
     @After
@@ -84,7 +92,7 @@ class FilesViewModelTest {
     }
 
     private fun TestScope.createViewModel(): FilesViewModel =
-        FilesViewModel(repository, session, settingsStore, uploadScheduler, downloadHelper).also { advanceUntilIdle() }
+        FilesViewModel(repository, session, settingsStore, uploadScheduler, downloadHelper, taskRepository).also { advanceUntilIdle() }
 
     /** 在后台收集一次性消息，返回实时更新的列表 */
     private fun TestScope.collectMessages(vm: FilesViewModel): List<String> {
@@ -108,7 +116,7 @@ class FilesViewModelTest {
 
     @Test
     fun `initial state is loading before repository returns`() = runTest(dispatcher) {
-        val vm = FilesViewModel(repository, session, settingsStore, uploadScheduler, downloadHelper)
+        val vm = FilesViewModel(repository, session, settingsStore, uploadScheduler, downloadHelper, taskRepository)
 
         // 尚未推进调度器，列表请求未返回
         assertTrue(vm.state.value.isLoading)
@@ -778,14 +786,108 @@ class FilesViewModelTest {
     // ---------------- 视图 / 多选 ----------------
 
     @Test
-    fun `toggleGrid updates state and persists setting`() = runTest(dispatcher) {
+    fun `setGrid updates state and persists setting`() = runTest(dispatcher) {
         val vm = createViewModel()
 
-        vm.toggleGrid()
+        vm.setGrid(true)
         advanceUntilIdle()
 
         assertTrue(vm.state.value.isGrid)
         coVerify { settingsStore.setFileGrid(true) }
+    }
+
+    @Test
+    fun `setGrid with current value does not persist`() = runTest(dispatcher) {
+        val vm = createViewModel()
+
+        vm.setGrid(false)
+        advanceUntilIdle()
+
+        coVerify(exactly = 0) { settingsStore.setFileGrid(any()) }
+    }
+
+    // ---------------- 后台任务角标 ----------------
+
+    @Test
+    fun `refreshTaskCount counts running and pending tasks across types`() = runTest(dispatcher) {
+        val types = TaskType.entries
+        coEvery { taskRepository.undone(types[0]) } returns listOf(
+            TaskInfo(id = "1", state = TaskState.RUNNING),
+            TaskInfo(id = "2", state = TaskState.FAILED),
+        )
+        coEvery { taskRepository.undone(types[1]) } returns listOf(TaskInfo(id = "3", state = TaskState.PENDING))
+        val vm = createViewModel()
+
+        vm.refreshTaskCount()
+        advanceUntilIdle()
+
+        assertEquals(2, vm.state.value.runningTasks)
+    }
+
+    @Test
+    fun `refreshTaskCount keeps previous count when every query fails`() = runTest(dispatcher) {
+        coEvery { taskRepository.undone(any()) } returns listOf(TaskInfo(id = "1", state = TaskState.RUNNING))
+        val vm = createViewModel()
+        vm.refreshTaskCount()
+        advanceUntilIdle()
+        coEvery { taskRepository.undone(any()) } throws AppException.Network("网络错误")
+
+        vm.refreshTaskCount()
+        advanceUntilIdle()
+
+        assertEquals(TaskType.entries.size, vm.state.value.runningTasks)
+    }
+
+    @Test
+    fun `task polling refreshes count while tasks are running and stops at zero`() = runTest(dispatcher) {
+        val first = TaskType.entries.first()
+        coEvery { taskRepository.undone(first) } returns listOf(TaskInfo(id = "1", state = TaskState.RUNNING))
+        val vm = createViewModel()
+
+        vm.startTaskPolling()
+        runCurrent()
+        assertEquals(1, vm.state.value.runningTasks)
+
+        // 服务端任务完成：下一轮轮询应把角标清零
+        coEvery { taskRepository.undone(first) } returns emptyList()
+        advanceTimeBy(TASK_POLL_INTERVAL_MS + 1)
+        assertEquals(0, vm.state.value.runningTasks)
+
+        // 数量为 0 后停止轮询，不再请求
+        val callsAtZero = TaskType.entries.size * 2
+        advanceTimeBy(TASK_POLL_INTERVAL_MS * 3)
+        coVerify(exactly = callsAtZero) { taskRepository.undone(any()) }
+    }
+
+    @Test
+    fun `stopTaskPolling stops further requests`() = runTest(dispatcher) {
+        coEvery { taskRepository.undone(any()) } returns listOf(TaskInfo(id = "1", state = TaskState.RUNNING))
+        val vm = createViewModel()
+
+        vm.startTaskPolling()
+        runCurrent()
+        vm.stopTaskPolling()
+        advanceTimeBy(TASK_POLL_INTERVAL_MS * 3)
+
+        coVerify(exactly = TaskType.entries.size) { taskRepository.undone(any()) }
+    }
+
+    @Test
+    fun `refreshTaskCount outside polling fetches only once`() = runTest(dispatcher) {
+        coEvery { taskRepository.undone(any()) } returns listOf(TaskInfo(id = "1", state = TaskState.RUNNING))
+        val vm = createViewModel()
+
+        vm.refreshTaskCount()
+        advanceTimeBy(TASK_POLL_INTERVAL_MS * 3)
+
+        coVerify(exactly = TaskType.entries.size) { taskRepository.undone(any()) }
+    }
+
+    @Test
+    fun `task badge text caps at 99 plus`() {
+        assertEquals("5", taskBadgeText(5))
+        assertEquals("99", taskBadgeText(99))
+        assertEquals("99+", taskBadgeText(100))
     }
 
     @Test
