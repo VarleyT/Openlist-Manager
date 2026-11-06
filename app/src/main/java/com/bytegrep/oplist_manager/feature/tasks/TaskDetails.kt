@@ -1,5 +1,7 @@
 package com.bytegrep.oplist_manager.feature.tasks
 
+import com.bytegrep.oplist_manager.data.model.TaskInfo
+import com.bytegrep.oplist_manager.data.model.TaskState
 import java.time.Duration
 import java.time.OffsetDateTime
 
@@ -47,6 +49,12 @@ fun parseTaskName(name: String): TaskPaths? {
     }
     return null
 }
+
+/** 仍在执行或等待重试的状态：此时服务端保留的 error 来自上一轮失败的尝试 */
+private val RETRYING_STATES = setOf(TaskState.PENDING, TaskState.RUNNING, TaskState.WAITING_RETRY, TaskState.BEFORE_RETRY)
+
+/** 错误信息是否为上一轮尝试遗留（任务已自动重试，当前尝试未必出错） */
+val TaskInfo.hasPreviousAttemptError: Boolean get() = error.isNotBlank() && state in RETRYING_STATES
 
 /** 遮蔽解压任务名称中的压缩包密码 */
 fun maskTaskName(name: String): String = PASSWORD.replace(name, " with password <***>")

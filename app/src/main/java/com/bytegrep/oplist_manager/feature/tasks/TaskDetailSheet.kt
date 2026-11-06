@@ -102,7 +102,7 @@ private fun DetailHeader(type: TaskType, info: TaskInfo) {
 
 @Composable
 private fun DetailRows(type: TaskType, info: TaskInfo, rate: RateSample?) {
-    val danger = OpenListTheme.colors.danger
+    val colors = OpenListTheme.colors
     val paths = remember(info.name) { parseTaskName(info.name) }
     val duration = remember(info.startTime, info.endTime) { formatTaskDuration(info.startTime, info.endTime) }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
@@ -121,7 +121,11 @@ private fun DetailRows(type: TaskType, info: TaskInfo, rate: RateSample?) {
             averageSpeed(info)?.let { DetailRow("平均速度", formatSpeed(it)) }
         }
         if (info.isRunning && info.status.isNotBlank()) DetailRow("当前状态", info.status)
-        if (info.error.isNotBlank()) DetailRow("错误信息", info.error, valueColor = danger)
+        if (info.hasPreviousAttemptError) {
+            DetailRow("上次尝试失败", info.error, valueColor = colors.warning)
+        } else if (info.error.isNotBlank()) {
+            DetailRow("错误信息", info.error, valueColor = colors.danger)
+        }
         if (info.totalBytes > 0) DetailRow("大小", formatBytes(info.totalBytes))
         if (info.creator.isNotBlank()) DetailRow("创建者", info.creator)
         formatDateTime(info.startTime).takeIf { it.isNotBlank() }?.let { DetailRow("开始时间", it) }

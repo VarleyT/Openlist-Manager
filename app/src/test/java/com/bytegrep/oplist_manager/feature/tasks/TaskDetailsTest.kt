@@ -1,7 +1,11 @@
 package com.bytegrep.oplist_manager.feature.tasks
 
+import com.bytegrep.oplist_manager.data.model.TaskInfo
+import com.bytegrep.oplist_manager.data.model.TaskState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TaskDetailsTest {
@@ -97,5 +101,20 @@ class TaskDetailsTest {
         assertNull(formatTaskDuration("2026-11-05T17:00:00Z", ""))
         assertNull(formatTaskDuration("bad", "2026-11-05T17:00:00Z"))
         assertNull(formatTaskDuration("2026-11-05T18:00:00Z", "2026-11-05T17:00:00Z"))
+    }
+
+    @Test
+    fun `error of running or retrying task is from previous attempt`() {
+        listOf(TaskState.PENDING, TaskState.RUNNING, TaskState.WAITING_RETRY, TaskState.BEFORE_RETRY).forEach { state ->
+            assertTrue(TaskInfo(id = "a", state = state, error = "unexpected EOF").hasPreviousAttemptError)
+        }
+    }
+
+    @Test
+    fun `error of failed task or blank error is not previous attempt`() {
+        listOf(TaskState.ERRORED, TaskState.FAILING, TaskState.FAILED, TaskState.CANCELED).forEach { state ->
+            assertFalse(TaskInfo(id = "a", state = state, error = "unexpected EOF").hasPreviousAttemptError)
+        }
+        assertFalse(TaskInfo(id = "a", state = TaskState.RUNNING, error = " ").hasPreviousAttemptError)
     }
 }

@@ -179,11 +179,12 @@ internal fun TaskCard(
                 MetaText("大小：${formatBytes(info.totalBytes)}$average")
             }
             if (info.error.isNotBlank()) {
+                val previous = info.hasPreviousAttemptError
                 Spacer(Modifier.height(Spacing.sm))
                 Text(
-                    info.error,
+                    if (previous) "上次尝试失败：${info.error}" else info.error,
                     style = MaterialTheme.typography.bodySmall,
-                    color = colors.danger,
+                    color = if (previous) colors.warning else colors.danger,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
