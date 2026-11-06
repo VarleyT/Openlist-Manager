@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.bytegrep.oplist_manager.core.common.RateSample
 import com.bytegrep.oplist_manager.core.common.userMessage
 import com.bytegrep.oplist_manager.data.model.TaskInfo
 import com.bytegrep.oplist_manager.data.model.TaskType
@@ -41,6 +42,10 @@ data class LocalUpload(
     val progress: Float?,
     val state: WorkInfo.State,
     val error: String?,
+    /** 平滑后的上传速率（字节/秒），未知为 null */
+    val bytesPerSecond: Double? = null,
+    /** 预计剩余秒数，未知为 null */
+    val remainingSeconds: Long? = null,
 ) {
     val stateLabel: String
         get() = when (state) {
@@ -68,6 +73,8 @@ data class TasksUiState(
     val isBusy: Boolean = false,
     /** 多选中的任务 key（[TypedTask.key]），为空表示未处于多选模式 */
     val selectedKeys: Set<String> = emptySet(),
+    /** 运行中服务器任务的速率采样，key 为 [TypedTask.key] */
+    val rates: Map<String, RateSample> = emptyMap(),
 ) {
     private fun List<TypedTask>.filtered() = if (selectedType == null) this else filter { it.type == selectedType }
     val visibleUndone: List<TypedTask> get() = undone.filtered()
@@ -90,10 +97,18 @@ data class TasksUiState(
 private data class FetchResult(val tasks: List<TypedTask>, val errors: List<String>)
 
 @HiltViewModel
-class TasksViewModel @Inject constructor(
+class TasksViewModel internal constructor(
     private val repository: TaskRepository,
-    @ApplicationContext context: Context,
+    context: Context,
+    /** 速率采样用的时钟（毫秒），测试中可替换 */
+    private val clock: () -> Long,
 ) : ViewModel() {
+
+    @Inject
+    constructor(
+        repository: TaskRepository,
+        @ApplicationContext context: Context,
+    ) : this(repository, context, System::currentTimeMillis)
 
     private val workManager = WorkManager.getInstance(context)
     private val _state = MutableStateFlow(TasksUiState())
@@ -202,6 +217,7 @@ class TasksViewModel @Inject constructor(
         _state.update {
             it.copy(
                 undone = undone.tasks,
+                rates = updateTaskRates(it.rates, undone.tasks, clock()),
                 done = done.tasks,
                 isLoading = false,
                 isRefreshing = false,
@@ -231,7 +247,7 @@ class TasksViewModel @Inject constructor(
         val before = _state.value.undone.map { it.key }.toSet()
         val result = fetchAll(repository::undone)
         if (result.errors.size == TaskType.entries.size) return // 轮询失败静默跳过，等待下次
-        _state.update { it.copy(undone = result.tasks).pruneSelection() }
+        _state.update { it.copy(undone = result.tasks, rates = updateTaskRates(it.rates, result.tasks, clock())).pruneSelection() }
         // 有任务结束时同步刷新已完成列表，使统计保持准确
         if (!result.tasks.map { it.key }.toSet().containsAll(before)) {
             val done = fetchAll(repository::done)
@@ -322,6 +338,8 @@ class TasksViewModel @Inject constructor(
             progress = parseUploadProgress(progressMap[KEY_PROGRESS]),
             state = info.state,
             error = info.outputData.getString(KEY_ERROR),
+            bytesPerSecond = (progressMap[KEY_SPEED] as? Long)?.takeIf { it >= 0 }?.toDouble(),
+            remainingSeconds = (progressMap[KEY_REMAINING] as? Long)?.takeIf { it >= 0 },
         )
     }
 
@@ -330,6 +348,8 @@ class TasksViewModel @Inject constructor(
         const val KEY_NAME = "name"
         const val KEY_PROGRESS = "progress"
         const val KEY_ERROR = "error"
+        const val KEY_SPEED = "speed"
+        const val KEY_REMAINING = "remaining"
         const val POLL_INTERVAL_MS = 3_000L
         const val STOP_TIMEOUT_MS = 5_000L
     }

@@ -148,6 +148,7 @@ fun TasksScreen(
                 busy = state.isBusy,
                 callbacks = callbacks,
                 onDismiss = { detailKey = null },
+                rate = state.rates[key],
             )
         }
     }
@@ -326,6 +327,7 @@ private fun LazyListScope.undoneItems(state: TasksUiState, callbacks: TaskCallba
                 onLongClick = { callbacks.onLongPress(task) },
                 selectionMode = state.selectionMode,
                 selected = task.key in state.selectedKeys,
+                rate = state.rates[task.key],
             )
         }
     }

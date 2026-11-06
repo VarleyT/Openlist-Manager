@@ -25,7 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.bytegrep.oplist_manager.core.common.RateSample
+import com.bytegrep.oplist_manager.core.common.estimateRemainingSeconds
 import com.bytegrep.oplist_manager.core.common.formatBytes
+import com.bytegrep.oplist_manager.core.common.formatRemaining
+import com.bytegrep.oplist_manager.core.common.formatSpeed
 import com.bytegrep.oplist_manager.core.common.formatDateTime
 import com.bytegrep.oplist_manager.core.designsystem.component.IconBlock
 import com.bytegrep.oplist_manager.core.designsystem.component.StatusPill
@@ -45,6 +49,7 @@ internal fun TaskDetailSheet(
     busy: Boolean,
     callbacks: TaskCallbacks,
     onDismiss: () -> Unit,
+    rate: RateSample? = null,
 ) {
     val colors = OpenListTheme.colors
     ModalBottomSheet(
@@ -61,7 +66,7 @@ internal fun TaskDetailSheet(
         ) {
             DetailHeader(type = task.type, info = task.task)
             Spacer(Modifier.height(Spacing.md))
-            SelectionContainer { DetailRows(type = task.type, info = task.task) }
+            SelectionContainer { DetailRows(type = task.type, info = task.task, rate = rate) }
             HorizontalDivider(Modifier.padding(vertical = Spacing.sm), color = colors.hairline)
             TaskActions(
                 task = task,
@@ -96,7 +101,7 @@ private fun DetailHeader(type: TaskType, info: TaskInfo) {
 }
 
 @Composable
-private fun DetailRows(type: TaskType, info: TaskInfo) {
+private fun DetailRows(type: TaskType, info: TaskInfo, rate: RateSample?) {
     val danger = OpenListTheme.colors.danger
     val paths = remember(info.name) { parseTaskName(info.name) }
     val duration = remember(info.startTime, info.endTime) { formatTaskDuration(info.startTime, info.endTime) }
@@ -108,6 +113,12 @@ private fun DetailRows(type: TaskType, info: TaskInfo) {
         }
         if (info.isRunning) {
             DetailRow("进度", String.format(Locale.US, "%.1f%%", info.progress))
+            rate?.bytesPerSecond?.let { speed ->
+                DetailRow("速度", formatSpeed(speed))
+                estimateRemainingSeconds(speed, rate.bytes, info.totalBytes)?.let { DetailRow("剩余时间", formatRemaining(it)) }
+            }
+        } else {
+            averageSpeed(info)?.let { DetailRow("平均速度", formatSpeed(it)) }
         }
         if (info.isRunning && info.status.isNotBlank()) DetailRow("当前状态", info.status)
         if (info.error.isNotBlank()) DetailRow("错误信息", info.error, valueColor = danger)

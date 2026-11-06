@@ -46,7 +46,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.work.WorkInfo
 import com.bytegrep.oplist_manager.core.common.formatBytes
+import com.bytegrep.oplist_manager.core.common.RateSample
 import com.bytegrep.oplist_manager.core.common.formatDateTime
+import com.bytegrep.oplist_manager.core.common.formatRateLine
+import com.bytegrep.oplist_manager.core.common.formatSpeed
 import com.bytegrep.oplist_manager.core.designsystem.component.IconBlock
 import com.bytegrep.oplist_manager.core.designsystem.component.OlCard
 import com.bytegrep.oplist_manager.core.designsystem.component.PillKind
@@ -151,6 +154,7 @@ internal fun TaskCard(
     onLongClick: () -> Unit,
     selectionMode: Boolean = false,
     selected: Boolean = false,
+    rate: RateSample? = null,
 ) {
     val info = task.task
     val colors = OpenListTheme.colors
@@ -164,10 +168,15 @@ internal fun TaskCard(
             TaskHeader(type = task.type, info = info, selection = if (selectionMode) selected else null)
             if (!isDoneTab && info.isRunning) {
                 Spacer(Modifier.height(Spacing.md))
-                ProgressLine(fraction = (info.progress / PERCENT_SCALE).toFloat(), totalBytes = info.totalBytes)
+                ProgressLine(
+                    fraction = (info.progress / PERCENT_SCALE).toFloat(),
+                    totalBytes = info.totalBytes,
+                    rateLine = runningRateLine(info, rate),
+                )
             } else if (info.totalBytes > 0) {
                 Spacer(Modifier.height(Spacing.xs))
-                MetaText("大小：${formatBytes(info.totalBytes)}")
+                val average = if (isDoneTab) averageSpeed(info)?.let { " · 平均 ${formatSpeed(it)}" }.orEmpty() else ""
+                MetaText("大小：${formatBytes(info.totalBytes)}$average")
             }
             if (info.error.isNotBlank()) {
                 Spacer(Modifier.height(Spacing.sm))
@@ -229,7 +238,13 @@ private fun TaskHeader(type: TaskType, info: TaskInfo, selection: Boolean? = nul
 }
 
 @Composable
-private fun ProgressLine(fraction: Float, totalBytes: Long, color: Color = OpenListTheme.colors.accent) {
+private fun ProgressLine(
+    fraction: Float,
+    totalBytes: Long,
+    color: Color = OpenListTheme.colors.accent,
+    /** 「速率 · 剩余时间」，未知时不显示 */
+    rateLine: String? = null,
+) {
     val safe = fraction.coerceIn(0f, 1f)
     LinearProgressIndicator(
         progress = { safe },
@@ -238,7 +253,7 @@ private fun ProgressLine(fraction: Float, totalBytes: Long, color: Color = OpenL
         trackColor = OpenListTheme.colors.fill,
     )
     Spacer(Modifier.height(Spacing.xs))
-    Row {
+    Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             String.format(Locale.US, "%.0f%%", safe * PERCENT_SCALE),
             style = MaterialTheme.typography.labelMedium,
@@ -247,6 +262,11 @@ private fun ProgressLine(fraction: Float, totalBytes: Long, color: Color = OpenL
         if (totalBytes > 0) {
             Spacer(Modifier.width(Spacing.sm))
             MetaText(formatBytes(totalBytes))
+        }
+        if (rateLine != null) {
+            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.width(Spacing.sm))
+            MetaText(rateLine)
         }
     }
 }
@@ -308,7 +328,12 @@ internal fun LocalUploadCard(upload: LocalUpload, onCancel: () -> Unit) {
             }
             if (upload.state == WorkInfo.State.RUNNING) {
                 Spacer(Modifier.height(Spacing.md))
-                ProgressLine(fraction = upload.progress ?: 0f, totalBytes = 0, color = colors.success)
+                ProgressLine(
+                    fraction = upload.progress ?: 0f,
+                    totalBytes = 0,
+                    color = colors.success,
+                    rateLine = formatRateLine(upload.bytesPerSecond, upload.remainingSeconds),
+                )
             }
             if (failed && !upload.error.isNullOrBlank()) {
                 Spacer(Modifier.height(Spacing.sm))

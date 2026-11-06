@@ -454,6 +454,30 @@ class TasksViewModelTest {
     }
 
     @Test
+    fun `polling tracks transfer rate of running tasks`() = runTest(dispatcher) {
+        var now = 0L
+        val sized = copyTask.copy(totalBytes = 10_000, progress = 10.0)
+        coEvery { repository.undone(TaskType.COPY) } returns listOf(sized)
+        val vm = TasksViewModel(repository, context) { now }.also {
+            backgroundScope.launch { it.state.collect {} }
+            advanceUntilIdle()
+        }
+        assertNull(vm.state.value.rates.getValue("copy:c1").bytesPerSecond)
+
+        now = 3_000
+        coEvery { repository.undone(TaskType.COPY) } returns listOf(sized.copy(progress = 40.0))
+        vm.startPolling()
+        advanceTimeBy(3_001)
+        runCurrent()
+        vm.stopPolling()
+
+        // (4000 - 1000) 字节 / 3 秒
+        assertEquals(1_000.0, vm.state.value.rates.getValue("copy:c1").bytesPerSecond!!, 0.001)
+        // 等待中的离线下载不跟踪
+        assertFalse("offline_download:o1" in vm.state.value.rates)
+    }
+
+    @Test
     fun `polling skips when done tab is selected`() = runTest(dispatcher) {
         val vm = createViewModel()
         vm.selectTab(TaskTab.DONE)
@@ -503,6 +527,32 @@ class TasksViewModelTest {
         assertEquals("a.mp4", uploads.single().name)
         assertEquals(0.5f, uploads.single().progress)
         assertEquals("上传中", uploads.single().stateLabel)
+    }
+
+    @Test
+    fun `local upload exposes speed and remaining time when reported`() = runTest(dispatcher) {
+        val withRate = WorkInfo(
+            id = UUID.randomUUID(),
+            state = WorkInfo.State.RUNNING,
+            tags = setOf("upload"),
+            progress = Data.Builder().putInt("progress", 50).putLong("speed", 2_048).putLong("remaining", 7).build(),
+        )
+        val unknown = WorkInfo(
+            id = UUID.randomUUID(),
+            state = WorkInfo.State.RUNNING,
+            tags = setOf("upload"),
+            progress = Data.Builder().putInt("progress", 10).putLong("speed", -1).putLong("remaining", -1).build(),
+        )
+        val vm = createViewModel()
+
+        workInfos.value = listOf(withRate, unknown)
+        advanceUntilIdle()
+
+        val (first, second) = vm.state.value.localUploads
+        assertEquals(2_048.0, first.bytesPerSecond!!, 0.0)
+        assertEquals(7L, first.remainingSeconds)
+        assertNull(second.bytesPerSecond)
+        assertNull(second.remainingSeconds)
     }
 
     @Test

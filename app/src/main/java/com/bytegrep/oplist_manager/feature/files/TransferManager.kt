@@ -23,6 +23,10 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.bytegrep.oplist_manager.core.common.AppException
+import com.bytegrep.oplist_manager.core.common.RateSample
+import com.bytegrep.oplist_manager.core.common.advance
+import com.bytegrep.oplist_manager.core.common.estimateRemainingSeconds
+import com.bytegrep.oplist_manager.core.common.formatRateLine
 import com.bytegrep.oplist_manager.core.common.userMessage
 import com.bytegrep.oplist_manager.data.repository.FileRepository
 import com.bytegrep.oplist_manager.data.session.SessionManager
@@ -34,6 +38,7 @@ import kotlinx.coroutines.flow.Flow
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -165,6 +170,7 @@ class UploadWorker @AssistedInject constructor(
         val resolver = applicationContext.contentResolver
         val size = querySize(uri)
         val lastReport = AtomicLong(0L)
+        val rate = AtomicReference<RateSample?>(null)
         fileRepository.upload(
             serverId = serverId,
             dir = targetDir,
@@ -172,17 +178,34 @@ class UploadWorker @AssistedInject constructor(
             size = size,
             mimeType = resolver.getType(uri) ?: guessMimeType(name),
             openStream = { resolver.openInputStream(uri) ?: throw IOException("无法读取文件：$name") },
-            onProgress = { written -> reportProgress(name, written, size, lastReport) },
+            onProgress = { written -> reportProgress(name, written, size, lastReport, rate) },
         )
     }
 
-    private fun reportProgress(name: String, written: Long, size: Long, lastReport: AtomicLong) {
+    private fun reportProgress(
+        name: String,
+        written: Long,
+        size: Long,
+        lastReport: AtomicLong,
+        rate: AtomicReference<RateSample?>,
+    ) {
         val now = System.currentTimeMillis()
         val last = lastReport.get()
         if (now - last < PROGRESS_INTERVAL_MS || !lastReport.compareAndSet(last, now)) return
+        // 只有抢到节流窗口的线程会走到这里，采样更新不会并发
+        val sample = rate.get().advance(written, now).also(rate::set)
+        val speed = sample.bytesPerSecond
+        val remaining = estimateRemainingSeconds(speed, written, size)
         val percent = if (size > 0) ((written * 100) / size).toInt().coerceIn(0, 100) else 0
-        setProgressAsync(workDataOf(KEY_PROGRESS to percent, KEY_PROGRESS_NAME to name))
-        notificationManager?.notify(notificationId, buildNotification(name, percent))
+        setProgressAsync(
+            workDataOf(
+                KEY_PROGRESS to percent,
+                KEY_PROGRESS_NAME to name,
+                KEY_SPEED to (speed?.toLong() ?: UNKNOWN),
+                KEY_REMAINING to (remaining ?: UNKNOWN),
+            ),
+        )
+        notificationManager?.notify(notificationId, buildNotification(name, percent, formatRateLine(speed, remaining)))
     }
 
     private fun querySize(uri: Uri): Long = runCatching {
@@ -198,11 +221,11 @@ class UploadWorker @AssistedInject constructor(
     private fun foregroundInfo(name: String, percent: Int) =
         ForegroundInfo(notificationId, buildNotification(name, percent), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
 
-    private fun buildNotification(name: String, percent: Int): Notification =
+    private fun buildNotification(name: String, percent: Int, rateLine: String? = null): Notification =
         NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setContentTitle("正在上传 $name")
-            .setContentText("$percent%")
+            .setContentText(rateLine?.let { "$percent% · $it" } ?: "$percent%")
             .setProgress(100, percent, percent == 0)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
@@ -222,6 +245,11 @@ class UploadWorker @AssistedInject constructor(
         const val KEY_PROGRESS = "progress"
         const val KEY_ERROR = "error"
         const val KEY_PROGRESS_NAME = "name"
+        /** 上传速率（字节/秒，Long），未知为 -1 */
+        const val KEY_SPEED = "speed"
+        /** 预计剩余秒数（Long），未知为 -1 */
+        const val KEY_REMAINING = "remaining"
+        private const val UNKNOWN = -1L
         const val CHANNEL_ID = "transfer"
         private const val MAX_RETRY = 3
         private const val PROGRESS_INTERVAL_MS = 500L
