@@ -17,6 +17,7 @@ docs/local_connection.txt
 
 /docs/plan/
 CLAUDE.md
+TODO.md
 
 .env
 .env.*
