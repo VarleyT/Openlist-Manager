@@ -251,3 +251,7 @@ app/src/main/java/com/bytegrep/oplist_manager/
 本项目主体采用 [MIT License](LICENSE) 开源。内置的 **FFmpeg 音频解码组件**使用 FFmpeg 的 LGPL 授权，与应用主体的 MIT 许可相区分；分发和再构建时请遵循对应第三方组件的许可要求。
 
 感谢 [OpenListTeam/OpenList](https://github.com/OpenListTeam/OpenList)、[AndroidX Media3](https://github.com/androidx/media) 和 [FFmpeg](https://ffmpeg.org/) 等开源项目。
+
+## 友情链接
+
+- [LINUX DO](https://linux.do/) — 新的理想型社区
